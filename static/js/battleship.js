@@ -428,6 +428,126 @@ function handleMove(x, y) {
     if ('vibrate' in navigator) {
       navigator.vibrate(200);
     }
+    const hitPos = { x, y };
+    const sunkShip = shipsToPlace.find(ship => ship.positions.some(p => p.x === hitPos.x && p.y === hitPos.y));
+    if (sunkShip) {
+      const hitPositions = sunkShip.positions.filter(p => myBoard[p.y][p.x].hit);
+      const hitCount = hitPositions.length;
+      const isSunk = hitCount === sunkShip.size;
+      const surroundSet = new Set();
+      const dirs = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
+      const diagDirs = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+      if (isSunk) {
+        // Mark all around the entire ship
+        sunkShip.positions.forEach(pos => {
+          dirs.forEach(([dx, dy]) => {
+            const nx = pos.x + dx;
+            const ny = pos.y + dy;
+            if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && !myBoard[ny][nx].attacked) {
+              surroundSet.add(`${nx},${ny}`);
+            }
+          });
+        });
+      } else {
+        // Not sunk, determine direction from hit positions
+        const isHorizontal = hitPositions.every(p => p.y === hitPositions[0].y);
+        const isVertical = hitPositions.every(p => p.x === hitPositions[0].x);
+        let clusters = [];
+        if (isHorizontal) {
+          const y = hitPositions[0].y;
+          const hitXs = hitPositions.map(p => p.x).sort((a, b) => a - b);
+          let currentCluster = [hitXs[0]];
+          for (let i = 1; i < hitXs.length; i++) {
+            if (hitXs[i] === hitXs[i - 1] + 1) {
+              currentCluster.push(hitXs[i]);
+            } else {
+              clusters.push(currentCluster);
+              currentCluster = [hitXs[i]];
+            }
+          }
+          clusters.push(currentCluster);
+          clusters.forEach(cluster => {
+            const clusterSize = cluster.length;
+            const minX = cluster[0];
+            const maxX = cluster[cluster.length - 1];
+            if (clusterSize === 1) {
+              // Mark only 4 diagonals
+              diagDirs.forEach(([dx, dy]) => {
+                const nx = minX + dx;
+                const ny = y + dy;
+                if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && !myBoard[ny][nx].attacked) {
+                  surroundSet.add(`${nx},${ny}`);
+                }
+              });
+            } else {
+              // Mark all adjacent except the two extensions
+              const extSet = new Set();
+              const ext1 = minX - 1;
+              if (ext1 >= 0) extSet.add(`${ext1},${y}`);
+              const ext2 = maxX + 1;
+              if (ext2 < 10) extSet.add(`${ext2},${y}`);
+              for (let cx = minX; cx <= maxX; cx++) {
+                dirs.forEach(([dx, dy]) => {
+                  const nx = cx + dx;
+                  const ny = y + dy;
+                  if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && !myBoard[ny][nx].attacked && !extSet.has(`${nx},${ny}`)) {
+                    surroundSet.add(`${nx},${ny}`);
+                  }
+                });
+              }
+            }
+          });
+        } else if (isVertical) {
+          const x = hitPositions[0].x;
+          const hitYs = hitPositions.map(p => p.y).sort((a, b) => a - b);
+          let currentCluster = [hitYs[0]];
+          for (let i = 1; i < hitYs.length; i++) {
+            if (hitYs[i] === hitYs[i - 1] + 1) {
+              currentCluster.push(hitYs[i]);
+            } else {
+              clusters.push(currentCluster);
+              currentCluster = [hitYs[i]];
+            }
+          }
+          clusters.push(currentCluster);
+          clusters.forEach(cluster => {
+            const clusterSize = cluster.length;
+            const minY = cluster[0];
+            const maxY = cluster[cluster.length - 1];
+            if (clusterSize === 1) {
+              // Mark only 4 diagonals
+              diagDirs.forEach(([dx, dy]) => {
+                const nx = x + dx;
+                const ny = minY + dy;
+                if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && !myBoard[ny][nx].attacked) {
+                  surroundSet.add(`${nx},${ny}`);
+                }
+              });
+            } else {
+              // Mark all adjacent except the two extensions
+              const extSet = new Set();
+              const ext1 = minY - 1;
+              if (ext1 >= 0) extSet.add(`${x},${ext1}`);
+              const ext2 = maxY + 1;
+              if (ext2 < 10) extSet.add(`${x},${ext2}`);
+              for (let cy = minY; cy <= maxY; cy++) {
+                dirs.forEach(([dx, dy]) => {
+                  const nx = x + dx;
+                  const ny = cy + dy;
+                  if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && !myBoard[ny][nx].attacked && !extSet.has(`${nx},${ny}`)) {
+                    surroundSet.add(`${nx},${ny}`);
+                  }
+                });
+              }
+            }
+          });
+        }
+      }
+      surrounds = Array.from(surroundSet).map(key => {
+        const [sx, sy] = key.split(',');
+        return { x: parseInt(sx), y: parseInt(sy) };
+      });
+    }
     if (opponentHits === totalShipCells) {
       statusEl.textContent = "Status: You lost!";
       defeatSound.play().catch(() => {});
@@ -436,28 +556,6 @@ function handleMove(x, y) {
       }
       gameStarted = false;
       rematchBtn.style.display = "block";
-    } else {
-      // Calculate deduced misses around this hit
-      const hitPos = { x, y };
-      const sunkShip = shipsToPlace.find(ship => ship.positions.some(p => p.x === hitPos.x && p.y === hitPos.y));
-      if (sunkShip) {
-        const unhitPositions = sunkShip.positions.filter(p => !myBoard[p.y][p.x].hit);
-        const surroundSet = new Set();
-        const dirs = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
-        dirs.forEach(([dx, dy]) => {
-          const nx = x + dx;
-          const ny = y + dy;
-          if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 &&
-              !myBoard[ny][nx].attacked &&
-              !unhitPositions.some(p => p.x === nx && p.y === ny)) {
-            surroundSet.add(`${nx},${ny}`);
-          }
-        });
-        surrounds = Array.from(surroundSet).map(key => {
-          const [sx, sy] = key.split(',');
-          return { x: parseInt(sx), y: parseInt(sy) };
-        });
-      }
     }
   } else {
     cell.el.classList.add("miss");
