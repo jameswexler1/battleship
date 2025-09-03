@@ -1,0 +1,44 @@
+{{ define "main" }}
+<section class="game">
+  <div class="panel">
+    <div class="id-row">
+      <label>Your Peer ID</label>
+      <input id="myId" type="text" readonly placeholder="connecting…"/>
+      <button id="copyId" class="btn">Copy</button>
+    </div>
+
+    <div class="id-row">
+      <label>Opponent Peer ID</label>
+      <input id="peerId" type="text" placeholder="paste opponent id"/>
+      <button id="connectBtn" class="btn">Connect</button>
+    </div>
+
+    <div class="status" id="status">Status: waiting for connection…</div>
+
+    <div class="controls">
+      <button id="randomizeBtn" class="btn">Randomize Ships</button>
+      <button id="readyBtn" class="btn primary">I’m Ready</button>
+      <button id="resetBtn" class="btn danger">Reset</button>
+      <span class="turn" id="turnIndicator">Turn: —</span>
+    </div>
+  </div>
+
+  <div class="boards">
+    <div class="board">
+      <h3>Your Board</h3>
+      <div id="myBoard" class="grid" data-board="me"></div>
+      <small>Place ships before marking Ready. Random placement is provided for speed.</small>
+    </div>
+    <div class="board">
+      <h3>Opponent Board</h3>
+      <div id="opBoard" class="grid" data-board="op"></div>
+      <small>Click a cell to fire on your turn.</small>
+    </div>
+  </div>
+
+  <details class="log-wrap">
+    <summary>Game log</summary>
+    <pre id="log" class="log"></pre>
+  </details>
+</section>
+{{ end }}

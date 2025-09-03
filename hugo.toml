@@ -1,0 +1,10 @@
+baseURL = "/"
+languageCode = "en-us"
+title = "Battleship P2P"
+theme = "hugo-battleship-peer"
+
+disableKinds = ["RSS", "taxonomy", "term", "sitemap", "robotsTXT", "404"]
+
+[params]
+  gridSize = 10
+  ships = [5,4,3,3,2]
