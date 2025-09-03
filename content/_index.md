@@ -1,7 +1,6 @@
 ---
-title: "Home"
+title: "Welcome to Battleship PeerJS Game"
 ---
-
-# Battleship P2P
-
-Head over to the game: [/battleship/](/battleship/)
+# Battleship Online
+Play the classic Battleship game **directly in your browser**, peer-to-peer with your friends.
+<p><a class="play-button" href="/battleship/">▶ Play Now</a></p>

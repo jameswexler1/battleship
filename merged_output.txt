@@ -1,0 +1,1337 @@
+
+
+
+=== ./netlify.toml ===
+[build]
+  publish = "public"
+  command = "hugo --gc --minify"
+
+[context.production.environment]
+  HUGO_VERSION = "0.111.3"
+  HUGO_ENV = "production"
+  HUGO_ENABLEGITINFO = "true"
+
+
+
+=== ./hugo.toml ===
+baseURL = "/"
+languageCode = "en-us"
+title = "Battleship Game"
+theme = "hugo-battleship-peer"
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+
+
+
+=== ./content/_index.md ===
+---
+title: "Welcome to Battleship PeerJS Game"
+---
+# Battleship Online
+Play the classic Battleship game **directly in your browser**, peer-to-peer with your friends.
+<p><a class="play-button" href="/battleship/">▶ Play Now</a></p>
+
+
+
+=== ./content/battleship/index.md ===
+---
+title: "Battleship"
+type: "battleship"
+---
+
+
+
+=== ./static/css/battleship.css ===
+/* General */
+body {
+  font-family: "Segoe UI", Roboto, sans-serif;
+  background: linear-gradient(180deg, #0b1a2a, #091422);
+  color: #f1f1f1;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+header, footer {
+  text-align: center;
+  padding: 1rem;
+  background: #0e2238;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+
+main {
+  flex: 1;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Landing page */
+.landing h1 {
+  font-size: 3rem;
+  margin: 1rem 0;
+  color: #00bfff;
+}
+
+.landing p {
+  font-size: 1.3rem;
+  max-width: 600px;
+  text-align: center;
+  margin: 0.5rem 0;
+  color: #a0c4ff;
+}
+
+a.play-button {
+  display: inline-block;
+  margin-top: 2rem;
+  font-size: 1.5rem;
+  padding: 0.75rem 2rem;
+  color: #fff;
+  background-color: #2563eb;
+  text-decoration: none;
+  border-radius: 12px;
+  box-shadow: 0 0 8px rgba(37,99,235,0.6);
+  transition: background-color 0.3s, transform 0.2s;
+}
+
+a.play-button:hover {
+  background-color: #1e4fb8;
+  transform: scale(1.05);
+}
+
+/* Status + Controls */
+#status {
+  margin: 1rem 0;
+  font-weight: bold;
+  text-align: center;
+  font-size: 1.2rem;
+  color: #66d9ef;
+}
+
+input, button {
+  font-size: 1rem;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: none;
+  margin: 0.3rem;
+}
+
+input {
+  background: #1b2d44;
+  color: #f1f1f1;
+  border: 1px solid #2a3e5c;
+}
+
+button {
+  background: #2563eb;
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+button:hover {
+  background: #1e4fb8;
+}
+
+/* Boards */
+#boards {
+  display: flex;
+  gap: 2rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  grid-template-rows: repeat(10, 1fr);
+  gap: 2px;
+  width: 300px;
+  max-width: 90vw;
+  aspect-ratio: 1 / 1;
+  background: #0e2238;
+  border: 2px solid #4a90e2;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(74,144,226,0.6);
+}
+
+.cell {
+  background: #142d46;
+  border: 1px solid #1f3a5f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.cell:hover {
+  background: #1f3a5f;
+}
+
+/* States */
+.ship {
+  background: lightblue;
+}
+
+.hit {
+  background: #dc2626 !important;
+  box-shadow: inset 0 0 6px #f87171;
+}
+
+.miss {
+  background: #3b82f6 !important;
+  box-shadow: inset 0 0 6px #60a5fa;
+}
+
+.preview {
+  background: rgba(255,255,255,0.3) !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  #boards {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .board {
+    width: 90vw;
+  }
+
+  .landing h1 {
+    font-size: 2.2rem;
+  }
+
+  .landing p {
+    font-size: 1.1rem;
+    padding: 0 1rem;
+  }
+
+  a.play-button {
+    font-size: 1.2rem;
+    padding: 0.5rem 1.5rem;
+  }
+}
+
+
+
+=== ./static/js/battleship.js ===
+import {joinRoom, selfId} from 'https://esm.run/trystero/torrent';
+const myBoardEl = document.getElementById("my-board");
+const opponentBoardEl = document.getElementById("opponent-board");
+const statusEl = document.getElementById("status");
+const myIdEl = document.getElementById("my-id");
+const connectBtn = document.getElementById("connect-btn");
+const readyBtn = document.getElementById("ready-btn");
+const opponentInput = document.getElementById("opponent-id");
+const resetBtn = document.createElement("button"); // New reset button for ship placement
+resetBtn.textContent = "Reset Ships";
+resetBtn.style.display = "none";
+const orientationBtn = document.createElement("button");
+orientationBtn.textContent = "Toggle Orientation (Horizontal)";
+orientationBtn.addEventListener("click", () => {
+  orientation = orientation === "horizontal" ? "vertical" : "horizontal";
+  orientationBtn.textContent = `Toggle Orientation (${orientation.charAt(0).toUpperCase() + orientation.slice(1)})`;
+});
+// Insert buttons after readyBtn (before boards for better visibility)
+readyBtn.parentNode.insertBefore(orientationBtn, readyBtn.nextSibling);
+readyBtn.parentNode.insertBefore(resetBtn, orientationBtn.nextSibling);
+let myTurn = false;
+let myBoard = [];
+let opponentBoard = [];
+let shipsToPlace = [
+  { name: "Carrier", size: 5, placed: false },
+  { name: "Battleship", size: 4, placed: false },
+  { name: "Cruiser", size: 3, placed: false },
+  { name: "Submarine", size: 3, placed: false },
+  { name: "Destroyer", size: 2, placed: false }
+];
+let currentShip = null;
+let orientation = "horizontal"; // Default orientation
+let ready = false;
+let opponentReady = false;
+let gameStarted = false;
+let myHits = 0;
+let opponentHits = 0;
+const totalShipCells = 17; // 5+4+3+3+2
+// Auto-fill and join if ?room=xxx in URL (for shareable links)
+const urlParams = new URLSearchParams(window.location.search);
+const roomParam = urlParams.get('room');
+if (roomParam) {
+  opponentInput.value = roomParam;
+  connectBtn.click(); // Auto-join
+}
+// Create 10x10 grids
+function createBoard(el, isMyBoard) {
+  const grid = [];
+  el.innerHTML = ""; // Clear existing cells
+  for (let y = 0; y < 10; y++) {
+    const row = [];
+    for (let x = 0; x < 10; x++) {
+      const cell = document.createElement("div");
+      cell.classList.add("cell");
+      cell.dataset.x = x;
+      cell.dataset.y = y;
+      if (isMyBoard) {
+        cell.addEventListener("click", (e) => placeShipAttempt(e.target));
+        cell.addEventListener("mouseover", (e) => previewShip(e.target));
+        cell.addEventListener("mouseout", clearPreview);
+      } else {
+        cell.addEventListener("click", () => {
+          if (myTurn && gameStarted && room && !cell.classList.contains("hit") && !cell.classList.contains("miss")) {
+            sendMove({ type: "move", x, y });
+            myTurn = false;
+            statusEl.textContent = "Status: Waiting for opponent...";
+          }
+        });
+      }
+      el.appendChild(cell);
+      row.push({ hasShip: false, hit: false, el: cell });
+    }
+    grid.push(row);
+  }
+  return grid;
+}
+// Preview ship placement
+function previewShip(cell) {
+  if (!currentShip || gameStarted) return;
+  const x = parseInt(cell.dataset.x);
+  const y = parseInt(cell.dataset.y);
+  clearPreview();
+  if (canPlaceShip(x, y, currentShip.size, orientation)) {
+    highlightCells(x, y, currentShip.size, orientation, "preview");
+  }
+}
+// Clear preview highlights
+function clearPreview() {
+  document.querySelectorAll(".preview").forEach(el => el.classList.remove("preview"));
+}
+// Attempt to place ship on click
+function placeShipAttempt(cell) {
+  if (!currentShip || gameStarted) return;
+  const x = parseInt(cell.dataset.x);
+  const y = parseInt(cell.dataset.y);
+  if (canPlaceShip(x, y, currentShip.size, orientation)) {
+    placeShip(x, y, currentShip.size, orientation);
+    currentShip.placed = true;
+    selectNextShip();
+    if (allShipsPlaced()) {
+      readyBtn.style.display = "block";
+      resetBtn.style.display = "block";
+      statusEl.textContent = "All ships placed! Click 'I'm Ready' when ready.";
+    }
+  }
+}
+// Check if ship can be placed
+function canPlaceShip(startX, startY, size, orient) {
+  for (let i = 0; i < size; i++) {
+    const x = orient === "horizontal" ? startX + i : startX;
+    const y = orient === "horizontal" ? startY : startY + i;
+    if (x >= 10 || y >= 10 || myBoard[y][x].hasShip) {
+      return false;
+    }
+  }
+  return true;
+}
+// Place the ship
+function placeShip(startX, startY, size, orient) {
+  for (let i = 0; i < size; i++) {
+    const x = orient === "horizontal" ? startX + i : startX;
+    const y = orient === "horizontal" ? startY : startY + i;
+    myBoard[y][x].hasShip = true;
+    myBoard[y][x].el.classList.add("ship");
+  }
+}
+// Highlight cells for preview
+function highlightCells(startX, startY, size, orient, className) {
+  for (let i = 0; i < size; i++) {
+    const x = orient === "horizontal" ? startX + i : startX;
+    const y = orient === "horizontal" ? startY : startY + i;
+    if (x < 10 && y < 10) {
+      myBoard[y][x].el.classList.add(className);
+    }
+  }
+}
+// Select next unplaced ship
+function selectNextShip() {
+  currentShip = shipsToPlace.find(ship => !ship.placed);
+  if (currentShip) {
+    statusEl.textContent = `Place ${currentShip.name} (${currentShip.size} cells)`;
+  } else {
+    statusEl.textContent = "All ships placed!";
+  }
+}
+// Check if all ships are placed
+function allShipsPlaced() {
+  return shipsToPlace.every(ship => ship.placed);
+}
+// Reset ship placement
+resetBtn.addEventListener("click", () => {
+  myBoard = createBoard(myBoardEl, true);
+  shipsToPlace.forEach(ship => ship.placed = false);
+  selectNextShip();
+  readyBtn.style.display = "none";
+  resetBtn.style.display = "none";
+});
+// Initialize boards
+myBoard = createBoard(myBoardEl, true);
+opponentBoard = createBoard(opponentBoardEl, false);
+selectNextShip();
+readyBtn.style.display = "none";
+// Your Metered iceServers array with credentials
+const iceServers = [
+  {
+    urls: "stun:stun.relay.metered.ca:80",
+  },
+  {
+    urls: "turn:global.relay.metered.ca:80",
+    username: "4a2277c3086875e0dd39eec5",
+    credential: "vzFuqmL2yuT2t5N5",
+  },
+  {
+    urls: "turn:global.relay.metered.ca:80?transport=tcp",
+    username: "4a2277c3086875e0dd39eec5",
+    credential: "vzFuqmL2yuT2t5N5",
+  },
+  {
+    urls: "turn:global.relay.metered.ca:443",
+    username: "4a2277c3086875e0dd39eec5",
+    credential: "vzFuqmL2yuT2t5N5",
+  },
+  {
+    urls: "turns:global.relay.metered.ca:443?transport=tcp",
+    username: "4a2277c3086875e0dd39eec5",
+    credential: "vzFuqmL2yuT2t5N5",
+  },
+];
+const config = {
+  appId: 'battleship-p2p-game', // Unique app ID to avoid collisions
+  rtcConfig: { iceServers }
+};
+let room = null;
+let sendReady, getReady, sendMove, getMove, sendResult, getResult;
+// Generate Room ID button logic (added)
+const generateBtn = document.getElementById("generate-room");
+const controlsDiv = document.querySelector('main > div:first-child'); // The div with input/buttons
+generateBtn.addEventListener("click", () => {
+  const roomId = crypto.randomUUID();
+  opponentInput.value = roomId;
+  statusEl.textContent = "Room ID generated! Share it with your opponent.";
+  // Create shareable link and append to controls
+  const shareP = document.createElement('p');
+  shareP.innerHTML = `Share this link: <a href="${window.location.origin}${window.location.pathname}?room=${roomId}">Join Game</a>`;
+  controlsDiv.appendChild(shareP);
+});
+// Connect (Join Room) button
+connectBtn.addEventListener("click", () => {
+  const roomId = opponentInput.value.trim();
+  if (!roomId) {
+    statusEl.textContent = "Status: Enter or generate a Room ID first.";
+    return;
+  }
+  statusEl.textContent = "Status: Joining room...";
+  console.log('Joining room:', roomId);
+  room = joinRoom(config, roomId);
+  // Setup actions for data exchange
+  [sendReady, getReady] = room.makeAction('ready');
+  [sendMove, getMove] = room.makeAction('move');
+  [sendResult, getResult] = room.makeAction('result');
+  // Listen for opponent joining (for status update)
+  room.onPeerJoin(peerId => {
+    console.log('Opponent joined:', peerId);
+    statusEl.textContent = "Status: Connected. Place ships...";
+    if (ready) {
+      sendReady({ type: "ready" });
+    }
+  });
+  // Handle incoming data
+  getReady((data, peerId) => {
+    console.log('Received ready from:', peerId);
+    opponentReady = true;
+    statusEl.textContent = "Status: Opponent is ready!";
+    if (ready) startGame();
+  });
+  getMove((data, peerId) => {
+    console.log('Received move:', data);
+    if (!gameStarted) return;
+    handleMove(data.x, data.y);
+  });
+  getResult((data, peerId) => {
+    console.log('Received result:', data);
+    if (!gameStarted) return;
+    handleResult(data);
+  });
+  // Handle disconnects
+  room.onPeerLeave(peerId => {
+    statusEl.textContent = "Status: Opponent disconnected.";
+    console.log('Opponent left:', peerId);
+    gameStarted = false;
+  });
+  // Set my ID (Trystero's selfId)
+  myIdEl.textContent = selfId;
+});
+// Ready button
+readyBtn.addEventListener("click", () => {
+  if (!allShipsPlaced()) return;
+  ready = true;
+  readyBtn.disabled = true;
+  if (room) {
+    console.log('Sending ready');
+    sendReady({ type: "ready" });
+    statusEl.textContent = "Status: You are ready! Waiting for opponent...";
+  } else {
+    statusEl.textContent = "Status: Join a room first.";
+    ready = false;
+    readyBtn.disabled = false;
+    return;
+  }
+  if (opponentReady) startGame();
+});
+function startGame() {
+  gameStarted = true;
+  orientationBtn.style.display = "none";
+  resetBtn.style.display = "none";
+  statusEl.textContent = "Status: Game started!";
+  // Dynamically get opponent ID
+  const peers = Object.keys(room.getPeers());
+  if (peers.length !== 1) {
+    statusEl.textContent = "Status: Error - Must be exactly 2 players.";
+    console.error('Unexpected number of peers:', peers.length);
+    gameStarted = false;
+    return;
+  }
+  const opponentId = peers[0];
+  if (selfId === opponentId) {
+    statusEl.textContent = "Status: Error - Duplicate peer ID detected. This usually happens when testing both players in the same browser (peer IDs are persisted in localStorage). Try using different browsers, incognito mode for one player, or clearing localStorage.";
+    gameStarted = false;
+    return;
+  }
+  // Decide who starts: lexicographic by selfId and opponentId
+  if (selfId < opponentId) {
+    myTurn = true;
+    statusEl.textContent = "Status: Your turn!";
+  } else {
+    myTurn = false;
+    statusEl.textContent = "Status: Opponent's turn...";
+  }
+  // Remove placement listeners from my board
+  myBoard.flat().forEach(cell => {
+    cell.el.removeEventListener("click", placeShipAttempt);
+    cell.el.removeEventListener("mouseover", previewShip);
+    cell.el.removeEventListener("mouseout", clearPreview);
+  });
+}
+function handleMove(x, y) {
+  if (!gameStarted) return;
+  const cell = myBoard[y][x];
+  let hit = false;
+  if (cell.hasShip && !cell.hit) {
+    cell.hit = true;
+    cell.el.classList.add("hit");
+    hit = true;
+    opponentHits++;
+    if (opponentHits === totalShipCells) {
+      statusEl.textContent = "Status: You lost!";
+      gameStarted = false;
+    }
+  } else {
+    cell.el.classList.add("miss");
+  }
+  console.log('Sending result:', { type: "result", x, y, hit });
+  sendResult({ type: "result", x, y, hit });
+  if (!hit) {
+    myTurn = true;
+    statusEl.textContent = "Status: Your turn!";
+  } else if (opponentHits < totalShipCells) {
+    statusEl.textContent = "Status: Opponent's turn..."; // Opponent hit, so they continue (only if not game over)
+  }
+}
+function handleResult(data) {
+  if (!gameStarted) return;
+  const cell = opponentBoard[data.y][data.x].el; // Note: opponentBoard uses .el
+  if (data.hit) {
+    cell.classList.add("hit");
+    myHits++;
+    if (myHits === totalShipCells) {
+      statusEl.textContent = "Status: You win!";
+      gameStarted = false;
+      return;
+    }
+    myTurn = true;
+    statusEl.textContent = "Status: Your turn!"; // Hit, continue
+  } else {
+    cell.classList.add("miss");
+    myTurn = false;
+    statusEl.textContent = "Status: Opponent's turn..."; // Miss, opponent's turn
+  }
+}
+
+
+
+=== ./public/index.html ===
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta name="generator" content="Hugo 0.149.0"><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Welcome to Battleship PeerJS Game</title>
+<link rel="stylesheet" href="/css/battleship.css">
+
+</head>
+<body>
+  <header>
+    <h1>Battleship Game</h1>
+  </header>
+  <main>
+
+<h1 id="battleship-online">Battleship Online</h1>
+<p>Play the classic Battleship game <strong>directly in your browser</strong>, peer-to-peer with your friends.</p>
+<p><a class="play-button" href="/battleship/">▶ Play Now</a></p>
+
+
+  </main>
+  <footer>
+    <p style="text-align:center; margin-top:2em;">&copy; 2025 Battleship PeerJS Game</p>
+
+  </footer>
+</body>
+</html>
+
+
+
+=== ./public/sitemap.xml ===
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>//localhost:1313/battleship/</loc>
+  </url><url>
+    <loc>//localhost:1313/categories/</loc>
+  </url><url>
+    <loc>//localhost:1313/tags/</loc>
+  </url><url>
+    <loc>//localhost:1313/</loc>
+  </url>
+</urlset>
+
+
+
+=== ./public/index.xml ===
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Welcome to Battleship PeerJS Game on Battleship Game</title>
+    <link>//localhost:1313/</link>
+    <description>Recent content in Welcome to Battleship PeerJS Game on Battleship Game</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <atom:link href="//localhost:1313/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Battleship</title>
+      <link>//localhost:1313/battleship/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      <guid>//localhost:1313/battleship/</guid>
+      <description></description>
+    </item>
+  </channel>
+</rss>
+
+
+
+=== ./public/tags/index.xml ===
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Tags on Battleship Game</title>
+    <link>//localhost:1313/tags/</link>
+    <description>Recent content in Tags on Battleship Game</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <atom:link href="//localhost:1313/tags/index.xml" rel="self" type="application/rss+xml" />
+  </channel>
+</rss>
+
+
+
+=== ./public/categories/index.xml ===
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Categories on Battleship Game</title>
+    <link>//localhost:1313/categories/</link>
+    <description>Recent content in Categories on Battleship Game</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <atom:link href="//localhost:1313/categories/index.xml" rel="self" type="application/rss+xml" />
+  </channel>
+</rss>
+
+
+
+=== ./public/battleship/index.html ===
+<!DOCTYPE html>
+<html lang="en">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Battleship</title>
+<link rel="stylesheet" href="/css/battleship.css">
+
+</head>
+<body>
+  <header>
+    <h1>Battleship Game</h1>
+  </header>
+  <main>
+
+<div>
+  <strong>Your ID:</strong> <span id="my-id">waiting...</span><br>
+  <input type="text" id="opponent-id" placeholder="Room ID">
+  <button id="generate-room">Generate Room ID</button>
+  <button id="connect-btn">Join Room</button>
+</div>
+
+<div id="status">Status: Waiting...</div>
+
+<button id="ready-btn">I'm Ready</button>
+
+<div id="boards">
+  <div>
+    <h3>Your Board</h3>
+    <div id="my-board" class="board"></div>
+  </div>
+  <div>
+    <h3>Opponent's Board</h3>
+    <div id="opponent-board" class="board"></div>
+  </div>
+</div>
+
+<script type="module" src="/js/battleship.js"></script>
+
+  </main>
+  <footer>
+    <p style="text-align:center; margin-top:2em;">&copy; 2025 Battleship PeerJS Game</p>
+
+  </footer>
+</body>
+</html>
+
+
+
+=== ./public/css/battleship.css ===
+/* General */
+body {
+  font-family: "Segoe UI", Roboto, sans-serif;
+  background: linear-gradient(180deg, #0b1a2a, #091422);
+  color: #f1f1f1;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+header, footer {
+  text-align: center;
+  padding: 1rem;
+  background: #0e2238;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+
+main {
+  flex: 1;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Landing page */
+.landing h1 {
+  font-size: 3rem;
+  margin: 1rem 0;
+  color: #00bfff;
+}
+
+.landing p {
+  font-size: 1.3rem;
+  max-width: 600px;
+  text-align: center;
+  margin: 0.5rem 0;
+  color: #a0c4ff;
+}
+
+a.play-button {
+  display: inline-block;
+  margin-top: 2rem;
+  font-size: 1.5rem;
+  padding: 0.75rem 2rem;
+  color: #fff;
+  background-color: #2563eb;
+  text-decoration: none;
+  border-radius: 12px;
+  box-shadow: 0 0 8px rgba(37,99,235,0.6);
+  transition: background-color 0.3s, transform 0.2s;
+}
+
+a.play-button:hover {
+  background-color: #1e4fb8;
+  transform: scale(1.05);
+}
+
+/* Status + Controls */
+#status {
+  margin: 1rem 0;
+  font-weight: bold;
+  text-align: center;
+  font-size: 1.2rem;
+  color: #66d9ef;
+}
+
+input, button {
+  font-size: 1rem;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: none;
+  margin: 0.3rem;
+}
+
+input {
+  background: #1b2d44;
+  color: #f1f1f1;
+  border: 1px solid #2a3e5c;
+}
+
+button {
+  background: #2563eb;
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+button:hover {
+  background: #1e4fb8;
+}
+
+/* Boards */
+#boards {
+  display: flex;
+  gap: 2rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  grid-template-rows: repeat(10, 1fr);
+  gap: 2px;
+  width: 300px;
+  max-width: 90vw;
+  aspect-ratio: 1 / 1;
+  background: #0e2238;
+  border: 2px solid #4a90e2;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(74,144,226,0.6);
+}
+
+.cell {
+  background: #142d46;
+  border: 1px solid #1f3a5f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.cell:hover {
+  background: #1f3a5f;
+}
+
+/* States */
+.ship {
+  background: lightblue;
+}
+
+.hit {
+  background: #dc2626 !important;
+  box-shadow: inset 0 0 6px #f87171;
+}
+
+.miss {
+  background: #3b82f6 !important;
+  box-shadow: inset 0 0 6px #60a5fa;
+}
+
+.preview {
+  background: rgba(255,255,255,0.3) !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  #boards {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .board {
+    width: 90vw;
+  }
+
+  .landing h1 {
+    font-size: 2.2rem;
+  }
+
+  .landing p {
+    font-size: 1.1rem;
+    padding: 0 1rem;
+  }
+
+  a.play-button {
+    font-size: 1.2rem;
+    padding: 0.5rem 1.5rem;
+  }
+}
+
+
+
+=== ./public/js/battleship.js ===
+import {joinRoom, selfId} from 'https://esm.run/trystero/torrent';
+const myBoardEl = document.getElementById("my-board");
+const opponentBoardEl = document.getElementById("opponent-board");
+const statusEl = document.getElementById("status");
+const myIdEl = document.getElementById("my-id");
+const connectBtn = document.getElementById("connect-btn");
+const readyBtn = document.getElementById("ready-btn");
+const opponentInput = document.getElementById("opponent-id");
+const resetBtn = document.createElement("button"); // New reset button for ship placement
+resetBtn.textContent = "Reset Ships";
+resetBtn.style.display = "none";
+const orientationBtn = document.createElement("button");
+orientationBtn.textContent = "Toggle Orientation (Horizontal)";
+orientationBtn.addEventListener("click", () => {
+  orientation = orientation === "horizontal" ? "vertical" : "horizontal";
+  orientationBtn.textContent = `Toggle Orientation (${orientation.charAt(0).toUpperCase() + orientation.slice(1)})`;
+});
+// Insert buttons after readyBtn (before boards for better visibility)
+readyBtn.parentNode.insertBefore(orientationBtn, readyBtn.nextSibling);
+readyBtn.parentNode.insertBefore(resetBtn, orientationBtn.nextSibling);
+let myTurn = false;
+let myBoard = [];
+let opponentBoard = [];
+let shipsToPlace = [
+  { name: "Carrier", size: 5, placed: false },
+  { name: "Battleship", size: 4, placed: false },
+  { name: "Cruiser", size: 3, placed: false },
+  { name: "Submarine", size: 3, placed: false },
+  { name: "Destroyer", size: 2, placed: false }
+];
+let currentShip = null;
+let orientation = "horizontal"; // Default orientation
+let ready = false;
+let opponentReady = false;
+let gameStarted = false;
+let myHits = 0;
+let opponentHits = 0;
+const totalShipCells = 17; // 5+4+3+3+2
+// Auto-fill and join if ?room=xxx in URL (for shareable links)
+const urlParams = new URLSearchParams(window.location.search);
+const roomParam = urlParams.get('room');
+if (roomParam) {
+  opponentInput.value = roomParam;
+  connectBtn.click(); // Auto-join
+}
+// Create 10x10 grids
+function createBoard(el, isMyBoard) {
+  const grid = [];
+  el.innerHTML = ""; // Clear existing cells
+  for (let y = 0; y < 10; y++) {
+    const row = [];
+    for (let x = 0; x < 10; x++) {
+      const cell = document.createElement("div");
+      cell.classList.add("cell");
+      cell.dataset.x = x;
+      cell.dataset.y = y;
+      if (isMyBoard) {
+        cell.addEventListener("click", (e) => placeShipAttempt(e.target));
+        cell.addEventListener("mouseover", (e) => previewShip(e.target));
+        cell.addEventListener("mouseout", clearPreview);
+      } else {
+        cell.addEventListener("click", () => {
+          if (myTurn && gameStarted && room && !cell.classList.contains("hit") && !cell.classList.contains("miss")) {
+            sendMove({ type: "move", x, y });
+            myTurn = false;
+            statusEl.textContent = "Status: Waiting for opponent...";
+          }
+        });
+      }
+      el.appendChild(cell);
+      row.push({ hasShip: false, hit: false, el: cell });
+    }
+    grid.push(row);
+  }
+  return grid;
+}
+// Preview ship placement
+function previewShip(cell) {
+  if (!currentShip || gameStarted) return;
+  const x = parseInt(cell.dataset.x);
+  const y = parseInt(cell.dataset.y);
+  clearPreview();
+  if (canPlaceShip(x, y, currentShip.size, orientation)) {
+    highlightCells(x, y, currentShip.size, orientation, "preview");
+  }
+}
+// Clear preview highlights
+function clearPreview() {
+  document.querySelectorAll(".preview").forEach(el => el.classList.remove("preview"));
+}
+// Attempt to place ship on click
+function placeShipAttempt(cell) {
+  if (!currentShip || gameStarted) return;
+  const x = parseInt(cell.dataset.x);
+  const y = parseInt(cell.dataset.y);
+  if (canPlaceShip(x, y, currentShip.size, orientation)) {
+    placeShip(x, y, currentShip.size, orientation);
+    currentShip.placed = true;
+    selectNextShip();
+    if (allShipsPlaced()) {
+      readyBtn.style.display = "block";
+      resetBtn.style.display = "block";
+      statusEl.textContent = "All ships placed! Click 'I'm Ready' when ready.";
+    }
+  }
+}
+// Check if ship can be placed
+function canPlaceShip(startX, startY, size, orient) {
+  for (let i = 0; i < size; i++) {
+    const x = orient === "horizontal" ? startX + i : startX;
+    const y = orient === "horizontal" ? startY : startY + i;
+    if (x >= 10 || y >= 10 || myBoard[y][x].hasShip) {
+      return false;
+    }
+  }
+  return true;
+}
+// Place the ship
+function placeShip(startX, startY, size, orient) {
+  for (let i = 0; i < size; i++) {
+    const x = orient === "horizontal" ? startX + i : startX;
+    const y = orient === "horizontal" ? startY : startY + i;
+    myBoard[y][x].hasShip = true;
+    myBoard[y][x].el.classList.add("ship");
+  }
+}
+// Highlight cells for preview
+function highlightCells(startX, startY, size, orient, className) {
+  for (let i = 0; i < size; i++) {
+    const x = orient === "horizontal" ? startX + i : startX;
+    const y = orient === "horizontal" ? startY : startY + i;
+    if (x < 10 && y < 10) {
+      myBoard[y][x].el.classList.add(className);
+    }
+  }
+}
+// Select next unplaced ship
+function selectNextShip() {
+  currentShip = shipsToPlace.find(ship => !ship.placed);
+  if (currentShip) {
+    statusEl.textContent = `Place ${currentShip.name} (${currentShip.size} cells)`;
+  } else {
+    statusEl.textContent = "All ships placed!";
+  }
+}
+// Check if all ships are placed
+function allShipsPlaced() {
+  return shipsToPlace.every(ship => ship.placed);
+}
+// Reset ship placement
+resetBtn.addEventListener("click", () => {
+  myBoard = createBoard(myBoardEl, true);
+  shipsToPlace.forEach(ship => ship.placed = false);
+  selectNextShip();
+  readyBtn.style.display = "none";
+  resetBtn.style.display = "none";
+});
+// Initialize boards
+myBoard = createBoard(myBoardEl, true);
+opponentBoard = createBoard(opponentBoardEl, false);
+selectNextShip();
+readyBtn.style.display = "none";
+// Your Metered iceServers array with credentials
+const iceServers = [
+  {
+    urls: "stun:stun.relay.metered.ca:80",
+  },
+  {
+    urls: "turn:global.relay.metered.ca:80",
+    username: "4a2277c3086875e0dd39eec5",
+    credential: "vzFuqmL2yuT2t5N5",
+  },
+  {
+    urls: "turn:global.relay.metered.ca:80?transport=tcp",
+    username: "4a2277c3086875e0dd39eec5",
+    credential: "vzFuqmL2yuT2t5N5",
+  },
+  {
+    urls: "turn:global.relay.metered.ca:443",
+    username: "4a2277c3086875e0dd39eec5",
+    credential: "vzFuqmL2yuT2t5N5",
+  },
+  {
+    urls: "turns:global.relay.metered.ca:443?transport=tcp",
+    username: "4a2277c3086875e0dd39eec5",
+    credential: "vzFuqmL2yuT2t5N5",
+  },
+];
+const config = {
+  appId: 'battleship-p2p-game', // Unique app ID to avoid collisions
+  rtcConfig: { iceServers }
+};
+let room = null;
+let sendReady, getReady, sendMove, getMove, sendResult, getResult;
+// Generate Room ID button logic (added)
+const generateBtn = document.getElementById("generate-room");
+const controlsDiv = document.querySelector('main > div:first-child'); // The div with input/buttons
+generateBtn.addEventListener("click", () => {
+  const roomId = crypto.randomUUID();
+  opponentInput.value = roomId;
+  statusEl.textContent = "Room ID generated! Share it with your opponent.";
+  // Create shareable link and append to controls
+  const shareP = document.createElement('p');
+  shareP.innerHTML = `Share this link: <a href="${window.location.origin}${window.location.pathname}?room=${roomId}">Join Game</a>`;
+  controlsDiv.appendChild(shareP);
+});
+// Connect (Join Room) button
+connectBtn.addEventListener("click", () => {
+  const roomId = opponentInput.value.trim();
+  if (!roomId) {
+    statusEl.textContent = "Status: Enter or generate a Room ID first.";
+    return;
+  }
+  statusEl.textContent = "Status: Joining room...";
+  console.log('Joining room:', roomId);
+  room = joinRoom(config, roomId);
+  // Setup actions for data exchange
+  [sendReady, getReady] = room.makeAction('ready');
+  [sendMove, getMove] = room.makeAction('move');
+  [sendResult, getResult] = room.makeAction('result');
+  // Listen for opponent joining (for status update)
+  room.onPeerJoin(peerId => {
+    console.log('Opponent joined:', peerId);
+    statusEl.textContent = "Status: Connected. Place ships...";
+    if (ready) {
+      sendReady({ type: "ready" });
+    }
+  });
+  // Handle incoming data
+  getReady((data, peerId) => {
+    console.log('Received ready from:', peerId);
+    opponentReady = true;
+    statusEl.textContent = "Status: Opponent is ready!";
+    if (ready) startGame();
+  });
+  getMove((data, peerId) => {
+    console.log('Received move:', data);
+    if (!gameStarted) return;
+    handleMove(data.x, data.y);
+  });
+  getResult((data, peerId) => {
+    console.log('Received result:', data);
+    if (!gameStarted) return;
+    handleResult(data);
+  });
+  // Handle disconnects
+  room.onPeerLeave(peerId => {
+    statusEl.textContent = "Status: Opponent disconnected.";
+    console.log('Opponent left:', peerId);
+    gameStarted = false;
+  });
+  // Set my ID (Trystero's selfId)
+  myIdEl.textContent = selfId;
+});
+// Ready button
+readyBtn.addEventListener("click", () => {
+  if (!allShipsPlaced()) return;
+  ready = true;
+  readyBtn.disabled = true;
+  if (room) {
+    console.log('Sending ready');
+    sendReady({ type: "ready" });
+    statusEl.textContent = "Status: You are ready! Waiting for opponent...";
+  } else {
+    statusEl.textContent = "Status: Join a room first.";
+    ready = false;
+    readyBtn.disabled = false;
+    return;
+  }
+  if (opponentReady) startGame();
+});
+function startGame() {
+  gameStarted = true;
+  orientationBtn.style.display = "none";
+  resetBtn.style.display = "none";
+  statusEl.textContent = "Status: Game started!";
+  // Dynamically get opponent ID
+  const peers = Object.keys(room.getPeers());
+  if (peers.length !== 1) {
+    statusEl.textContent = "Status: Error - Must be exactly 2 players.";
+    console.error('Unexpected number of peers:', peers.length);
+    gameStarted = false;
+    return;
+  }
+  const opponentId = peers[0];
+  if (selfId === opponentId) {
+    statusEl.textContent = "Status: Error - Duplicate peer ID detected. This usually happens when testing both players in the same browser (peer IDs are persisted in localStorage). Try using different browsers, incognito mode for one player, or clearing localStorage.";
+    gameStarted = false;
+    return;
+  }
+  // Decide who starts: lexicographic by selfId and opponentId
+  if (selfId < opponentId) {
+    myTurn = true;
+    statusEl.textContent = "Status: Your turn!";
+  } else {
+    myTurn = false;
+    statusEl.textContent = "Status: Opponent's turn...";
+  }
+  // Remove placement listeners from my board
+  myBoard.flat().forEach(cell => {
+    cell.el.removeEventListener("click", placeShipAttempt);
+    cell.el.removeEventListener("mouseover", previewShip);
+    cell.el.removeEventListener("mouseout", clearPreview);
+  });
+}
+function handleMove(x, y) {
+  if (!gameStarted) return;
+  const cell = myBoard[y][x];
+  let hit = false;
+  if (cell.hasShip && !cell.hit) {
+    cell.hit = true;
+    cell.el.classList.add("hit");
+    hit = true;
+    opponentHits++;
+    if (opponentHits === totalShipCells) {
+      statusEl.textContent = "Status: You lost!";
+      gameStarted = false;
+    }
+  } else {
+    cell.el.classList.add("miss");
+  }
+  console.log('Sending result:', { type: "result", x, y, hit });
+  sendResult({ type: "result", x, y, hit });
+  if (!hit) {
+    myTurn = true;
+    statusEl.textContent = "Status: Your turn!";
+  } else if (opponentHits < totalShipCells) {
+    statusEl.textContent = "Status: Opponent's turn..."; // Opponent hit, so they continue (only if not game over)
+  }
+}
+function handleResult(data) {
+  if (!gameStarted) return;
+  const cell = opponentBoard[data.y][data.x].el; // Note: opponentBoard uses .el
+  if (data.hit) {
+    cell.classList.add("hit");
+    myHits++;
+    if (myHits === totalShipCells) {
+      statusEl.textContent = "Status: You win!";
+      gameStarted = false;
+      return;
+    }
+    myTurn = true;
+    statusEl.textContent = "Status: Your turn!"; // Hit, continue
+  } else {
+    cell.classList.add("miss");
+    myTurn = false;
+    statusEl.textContent = "Status: Opponent's turn..."; // Miss, opponent's turn
+  }
+}
+
+
+
+=== ./themes/hugo-battleship-peer/theme.toml ===
+name = "hugo-battleship-peer"
+license = "MIT"
+licenselink = "https://opensource.org/licenses/MIT"
+description = "Minimal theme for Battleship PeerJS game"
+
+
+
+=== ./themes/hugo-battleship-peer/layouts/index.html ===
+{{ define "main" }}
+{{ .Content }}
+{{ end }}
+
+
+
+=== ./themes/hugo-battleship-peer/layouts/_default/baseof.html ===
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  {{ partial "head.html" . }}
+</head>
+<body>
+  <header>
+    <h1>{{ .Site.Title }}</h1>
+  </header>
+  <main>
+    {{ block "main" . }}{{ end }}
+  </main>
+  <footer>
+    {{ partial "footer.html" . }}
+  </footer>
+</body>
+</html>
+
+
+
+=== ./themes/hugo-battleship-peer/layouts/battleship/single.html ===
+{{ define "main" }}
+<div>
+  <strong>Your ID:</strong> <span id="my-id">waiting...</span><br>
+  <input type="text" id="opponent-id" placeholder="Room ID">
+  <button id="generate-room">Generate Room ID</button>
+  <button id="connect-btn">Join Room</button>
+</div>
+
+<div id="status">Status: Waiting...</div>
+
+<button id="ready-btn">I'm Ready</button>
+
+<div id="boards">
+  <div>
+    <h3>Your Board</h3>
+    <div id="my-board" class="board"></div>
+  </div>
+  <div>
+    <h3>Opponent's Board</h3>
+    <div id="opponent-board" class="board"></div>
+  </div>
+</div>
+
+<script type="module" src="/js/battleship.js"></script>
+{{ end }}
+
+
+
+=== ./themes/hugo-battleship-peer/layouts/partials/head.html ===
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ .Title }}</title>
+<link rel="stylesheet" href="/css/battleship.css">
+
+
+
+=== ./themes/hugo-battleship-peer/layouts/partials/footer.html ===
+<p style="text-align:center; margin-top:2em;">&copy; 2025 Battleship PeerJS Game</p>

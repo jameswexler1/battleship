@@ -1,292 +1,506 @@
-\
-    (() => {
-      // Configuration
-      const GRID_SIZE = 10;
-      const SHIPS = [5,4,3,3,2]; // classic set
-
-      // DOM helpers
-      const $ = (sel) => document.querySelector(sel);
-      const log = (msg) => { const el = $('#log'); if (!el) return; const t = new Date().toLocaleTimeString(); el.textContent += `[${t}] ${msg}\n`; el.scrollTop = el.scrollHeight; };
-
-      // UI elements
-      const myIdInp = $('#myId');
-      const peerIdInp = $('#peerId');
-      const connectBtn = $('#connectBtn');
-      const copyBtn = $('#copyId');
-      const statusEl = $('#status');
-      const myBoardEl = $('#myBoard');
-      const opBoardEl = $('#opBoard');
-      const randomBtn = $('#randomizeBtn');
-      const readyBtn = $('#readyBtn');
-      const resetBtn = $('#resetBtn');
-      const turnEl = $('#turnIndicator');
-
-      // Game state
-      const state = {
-        peer: null,
-        conn: null,
-        myId: null,
-        ready: false,
-        opReady: false,
-        myTurn: false,
-        myBoard: createMatrix(GRID_SIZE, GRID_SIZE, 0), // 0 empty, 1 ship, 2 hit, 3 miss
-        opBoard: createMatrix(GRID_SIZE, GRID_SIZE, 0), // we track hits/misses only
-        ships: [], // list of ship coordinates for me
-        sunkCount: 0,
-        opSunkCount: 0,
-      };
-
-      // Build boards
-      function buildBoards() {
-        myBoardEl.style.setProperty('--size', GRID_SIZE);
-        opBoardEl.style.setProperty('--size', GRID_SIZE);
-        myBoardEl.innerHTML = '';
-        opBoardEl.innerHTML = '';
-
-        for (let y=0; y<GRID_SIZE; y++) {
-          for (let x=0; x<GRID_SIZE; x++) {
-            const c1 = document.createElement('div'); c1.className = 'cell'; c1.dataset.x = x; c1.dataset.y = y; c1.dataset.board = 'me';
-            myBoardEl.appendChild(c1);
-            const c2 = document.createElement('div'); c2.className = 'cell'; c2.dataset.x = x; c2.dataset.y = y; c2.dataset.board = 'op';
-            c2.addEventListener('click', onFireCell);
-            opBoardEl.appendChild(c2);
-          }
-        }
-        updateTargetability();
-      }
-
-      function createMatrix(w,h,val=0){ return Array.from({length:h},()=>Array.from({length:w},()=>val)); }
-
-      function clearBoards() {
-        state.myBoard = createMatrix(GRID_SIZE, GRID_SIZE, 0);
-        state.opBoard = createMatrix(GRID_SIZE, GRID_SIZE, 0);
-        state.ships = [];
-        state.sunkCount = 0; state.opSunkCount = 0;
-        Array.from(myBoardEl.children).forEach(c=>c.className='cell');
-        Array.from(opBoardEl.children).forEach(c=>c.className='cell');
-        turnEl.textContent = 'Turn: —';
-      }
-
-      function randomPlacement() {
-        clearBoards();
-        const b = state.myBoard;
-        for (const len of SHIPS) placeShipRandom(b, len);
-        // Paint ships
-        for (let y=0;y<GRID_SIZE;y++) for (let x=0;x<GRID_SIZE;x++) if (b[y][x]===1) cellAt(myBoardEl,x,y).classList.add('ship');
-        log('Ships randomized.');
-      }
-
-      function placeShipRandom(board, len, maxTries=400){
-        for(let t=0;t<maxTries;t++){
-          const horiz = Math.random()<0.5;
-          const x0 = Math.floor(Math.random()*(GRID_SIZE-(horiz?len:0)));
-          const y0 = Math.floor(Math.random()*(GRID_SIZE-(horiz?0:len)));
-          let ok = true; const coords=[];
-          for(let i=0;i<len;i++){
-            const x=x0+(horiz?i:0), y=y0+(horiz?0:i);
-            if(board[y][x]!==0){ ok=false; break; }
-            // avoid adjacency: check neighbors
-            for(let yy=Math.max(0,y-1); yy<=Math.min(GRID_SIZE-1,y+1); yy++)
-              for(let xx=Math.max(0,x-1); xx<=Math.min(GRID_SIZE-1,x+1); xx++)
-                if(board[yy][xx]===1){ ok=false; }
-            coords.push([x,y]);
-          }
-          if(ok){ for(const [x,y] of coords) board[y][x]=1; state.ships.push(coords); return true; }
-        }
-        return false;
-      }
-
-      function cellAt(container,x,y){ return container.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`); }
-
-      function setStatus(txt){ statusEl.textContent = 'Status: ' + txt; }
-
-      // Turn assignment: deterministic by lexicographic order of peer IDs so both sides agree.
-      function decideFirstTurn(myId, opId){ return myId < opId; }
-
-      // Messaging helpers
-      function send(type, payload={}){
-        if(!state.conn || state.conn.open!==True) {
-            // In browser JS, True is undefined. Ensure boolean is lowercase.
-        }
-      }
-      // fix boolean typo at runtime by redefining:
-      function sendMsg(type, payload={}){
-        if(!state.conn || state.conn.open!==true) return;
-        state.conn.send({ type, payload });
-      }
-
-      // Firing handler
-      function onFireCell(e){
-        if(!state.ready || !state.opReady){ log('Both players must be Ready.'); return; }
-        if(!state.myTurn){ log('Not your turn.'); return; }
-        const x = Number(e.currentTarget.dataset.x), y = Number(e.currentTarget.dataset.y);
-        // Prevent re-firing same cell
-        if(state.opBoard[y][x]===2 || state.opBoard[y][x]===3){ log('Already fired at this cell.'); return; }
-        sendMsg('move', { x, y });
-        state.myTurn = false; updateTurnUI();
-      }
-
-      function updateTurnUI(){ turnEl.textContent = 'Turn: ' + (state.myTurn ? 'Yours' : 'Opponent'); updateTargetability(); }
-      function updateTargetability(){
-        Array.from(opBoardEl.children).forEach(c=>{
-          if(state.myTurn && state.ready && state.opReady && state.conn?.open){
-            c.classList.add('target');
-          } else {
-            c.classList.remove('target');
+import {joinRoom, selfId} from 'https://esm.run/trystero/torrent';
+const myBoardEl = document.getElementById("my-board");
+const opponentBoardEl = document.getElementById("opponent-board");
+const statusEl = document.getElementById("status");
+const myIdEl = document.getElementById("my-id");
+const connectBtn = document.getElementById("connect-btn");
+const readyBtn = document.getElementById("ready-btn");
+const opponentInput = document.getElementById("opponent-id");
+const resetBtn = document.createElement("button"); // New reset button for ship placement
+resetBtn.textContent = "Reset Ships";
+resetBtn.style.display = "none";
+const orientationBtn = document.createElement("button");
+orientationBtn.textContent = "Toggle Orientation (Horizontal)";
+orientationBtn.addEventListener("click", () => {
+  orientation = orientation === "horizontal" ? "vertical" : "horizontal";
+  orientationBtn.textContent = `Toggle Orientation (${orientation.charAt(0).toUpperCase() + orientation.slice(1)})`;
+});
+const rematchBtn = document.createElement("button");
+rematchBtn.textContent = "Rematch";
+rematchBtn.style.display = "none";
+// Insert buttons after readyBtn (before boards for better visibility)
+readyBtn.parentNode.insertBefore(orientationBtn, readyBtn.nextSibling);
+readyBtn.parentNode.insertBefore(resetBtn, orientationBtn.nextSibling);
+readyBtn.parentNode.insertBefore(rematchBtn, resetBtn.nextSibling);
+let myTurn = false;
+let myBoard = [];
+let opponentBoard = [];
+let shipsToPlace = [
+  { name: "Battleship", size: 4, placed: false, positions: [] },
+  { name: "Cruiser 1", size: 3, placed: false, positions: [] },
+  { name: "Cruiser 2", size: 3, placed: false, positions: [] },
+  { name: "Destroyer 1", size: 2, placed: false, positions: [] },
+  { name: "Destroyer 2", size: 2, placed: false, positions: [] },
+  { name: "Destroyer 3", size: 2, placed: false, positions: [] },
+  { name: "Patrol Boat 1", size: 1, placed: false, positions: [] },
+  { name: "Patrol Boat 2", size: 1, placed: false, positions: [] },
+  { name: "Patrol Boat 3", size: 1, placed: false, positions: [] },
+  { name: "Patrol Boat 4", size: 1, placed: false, positions: [] }
+];
+let currentShip = null;
+let orientation = "horizontal"; // Default orientation
+let ready = false;
+let opponentReady = false;
+let rematchReady = false;
+let opponentRematchReady = false;
+let gameStarted = false;
+let myHits = 0;
+let opponentHits = 0;
+const totalShipCells = 20; // 4 + 3+3 + 2+2+2 + 1+1+1+1
+const hitSound = new Audio('https://therecordist.com/assets/sound/mp3_14/Explosion_Large_Blast_1.mp3');
+const victorySound = new Audio('https://orangefreesounds.com/wp-content/uploads/2023/06/Victory-fanfare-sound-effect.mp3');
+const defeatSound = new Audio('https://freesound.org/data/previews/183/183077_2374229-lq.mp3');
+// Auto-fill and join if ?room=xxx in URL (for shareable links)
+const urlParams = new URLSearchParams(window.location.search);
+const roomParam = urlParams.get('room');
+if (roomParam) {
+  opponentInput.value = roomParam;
+  connectBtn.click(); // Auto-join
+}
+// Move status between boards on mobile
+function adjustStatusPosition() {
+  if (window.innerWidth <= 768) {
+    const yourBoardDiv = document.querySelector('#boards > div:first-child');
+    if (yourBoardDiv && !yourBoardDiv.nextSibling.isEqualNode(statusEl)) {
+      yourBoardDiv.after(statusEl);
+    }
+  } else {
+    const controlsDiv = document.querySelector('main > div:first-child');
+    if (controlsDiv && !controlsDiv.nextSibling.isEqualNode(statusEl)) {
+      controlsDiv.after(statusEl);
+    }
+  }
+}
+window.addEventListener('resize', adjustStatusPosition);
+adjustStatusPosition(); // Initial check
+// Create 10x10 grids
+function createBoard(el, isMyBoard) {
+  const grid = [];
+  el.innerHTML = ""; // Clear existing cells
+  for (let y = 0; y < 10; y++) {
+    const row = [];
+    for (let x = 0; x < 10; x++) {
+      const cell = document.createElement("div");
+      cell.classList.add("cell");
+      cell.dataset.x = x;
+      cell.dataset.y = y;
+      if (isMyBoard) {
+        cell.addEventListener("click", (e) => placeShipAttempt(e.target));
+        cell.addEventListener("mouseover", (e) => previewShip(e.target));
+        cell.addEventListener("mouseout", clearPreview);
+      } else {
+        cell.addEventListener("click", () => {
+          if (myTurn && gameStarted && room && !cell.classList.contains("hit") && !cell.classList.contains("miss") && !cell.classList.contains("deduced-miss")) {
+            sendMove({ type: "move", x, y });
+            myTurn = false;
+            statusEl.textContent = "Status: Waiting for opponent...";
           }
         });
       }
-
-      // Apply an incoming shot on my board
-      function applyShot(x,y){
-        const b = state.myBoard; let result = 'miss';
-        if(b[y][x]===1){ b[y][x]=2; result='hit';
-          cellAt(myBoardEl,x,y).classList.add('hit');
-        } else if (b[y][x]===0) {
-          b[y][x]=3; cellAt(myBoardEl,x,y).classList.add('miss');
-        } else {
-          // already shot here -> counts as miss to avoid cheating loop
-          result='miss';
-        }
-        // Check sunk
-        if(result==='hit'){ if(checkSunkAt(x,y)) { result='sunk'; state.sunkCount++; } }
-        return result;
+      el.appendChild(cell);
+      row.push({ hasShip: false, hit: false, attacked: false, el: cell });
+    }
+    grid.push(row);
+  }
+  return grid;
+}
+// Preview ship placement
+function previewShip(cell) {
+  if (!currentShip || gameStarted) return;
+  const x = parseInt(cell.dataset.x);
+  const y = parseInt(cell.dataset.y);
+  clearPreview();
+  if (canPlaceShip(x, y, currentShip.size, orientation)) {
+    highlightCells(x, y, currentShip.size, orientation, "preview");
+  }
+}
+// Clear preview highlights
+function clearPreview() {
+  document.querySelectorAll(".preview").forEach(el => el.classList.remove("preview"));
+}
+// Attempt to place ship on click
+function placeShipAttempt(cell) {
+  if (!currentShip || gameStarted) return;
+  const x = parseInt(cell.dataset.x);
+  const y = parseInt(cell.dataset.y);
+  if (canPlaceShip(x, y, currentShip.size, orientation)) {
+    placeShip(x, y, currentShip.size, orientation);
+    currentShip.placed = true;
+    selectNextShip();
+    if (allShipsPlaced()) {
+      readyBtn.style.display = "block";
+      resetBtn.style.display = "block";
+      statusEl.textContent = "All ships placed! Click 'I'm Ready' when ready.";
+    }
+  }
+}
+// Check if ship can be placed (no overlap, in bounds, no adjacent ships)
+function canPlaceShip(startX, startY, size, orient) {
+  // Check bounds and overlap
+  for (let i = 0; i < size; i++) {
+    const x = orient === "horizontal" ? startX + i : startX;
+    const y = orient === "horizontal" ? startY : startY + i;
+    if (x >= 10 || y >= 10 || myBoard[y][x].hasShip) {
+      return false;
+    }
+  }
+  // Check no adjacent ships (including diagonally)
+  if (hasAdjacentShip(startX, startY, size, orient)) {
+    return false;
+  }
+  return true;
+}
+// Check for adjacent ships
+function hasAdjacentShip(startX, startY, size, orient) {
+  const dirs = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
+  for (let i = 0; i < size; i++) {
+    const cx = orient === "horizontal" ? startX + i : startX;
+    const cy = orient === "horizontal" ? startY : startY + i;
+    for (let [dx, dy] of dirs) {
+      const nx = cx + dx;
+      const ny = cy + dy;
+      if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && myBoard[ny][nx].hasShip) {
+        return true;
       }
-
-      function checkSunkAt(x,y){
-        for(const ship of state.ships){
-          if(ship.some(([sx,sy])=>sx===x && sy===y)){
-            return ship.every(([sx,sy])=> state.myBoard[sy][sx]===2);
-          }
-        }
-        return false;
+    }
+  }
+  return false;
+}
+// Place the ship
+function placeShip(startX, startY, size, orient) {
+  currentShip.positions = [];
+  for (let i = 0; i < size; i++) {
+    const x = orient === "horizontal" ? startX + i : startX;
+    const y = orient === "horizontal" ? startY : startY + i;
+    myBoard[y][x].hasShip = true;
+    myBoard[y][x].el.classList.add("ship");
+    currentShip.positions.push({ x, y });
+  }
+}
+// Highlight cells for preview
+function highlightCells(startX, startY, size, orient, className) {
+  for (let i = 0; i < size; i++) {
+    const x = orient === "horizontal" ? startX + i : startX;
+    const y = orient === "horizontal" ? startY : startY + i;
+    if (x < 10 && y < 10) {
+      myBoard[y][x].el.classList.add(className);
+    }
+  }
+}
+// Select next unplaced ship
+function selectNextShip() {
+  currentShip = shipsToPlace.find(ship => !ship.placed);
+  if (currentShip) {
+    statusEl.textContent = `Place ${currentShip.name} (${currentShip.size} cells)`;
+  } else {
+    statusEl.textContent = "All ships placed!";
+  }
+}
+// Check if all ships are placed
+function allShipsPlaced() {
+  return shipsToPlace.every(ship => ship.placed);
+}
+// Reset ship placement
+resetBtn.addEventListener("click", () => {
+  myBoard = createBoard(myBoardEl, true);
+  shipsToPlace.forEach(ship => {
+    ship.placed = false;
+    ship.positions = [];
+  });
+  selectNextShip();
+  readyBtn.style.display = "none";
+  resetBtn.style.display = "none";
+});
+// Initialize boards
+myBoard = createBoard(myBoardEl, true);
+opponentBoard = createBoard(opponentBoardEl, false);
+selectNextShip();
+readyBtn.style.display = "none";
+// Your Metered iceServers array with credentials
+const iceServers = [
+  {
+    urls: "stun:stun.relay.metered.ca:80",
+  },
+  {
+    urls: "turn:global.relay.metered.ca:80",
+    username: "4a2277c3086875e0dd39eec5",
+    credential: "vzFuqmL2yuT2t5N5",
+  },
+  {
+    urls: "turn:global.relay.metered.ca:80?transport=tcp",
+    username: "4a2277c3086875e0dd39eec5",
+    credential: "vzFuqmL2yuT2t5N5",
+  },
+  {
+    urls: "turn:global.relay.metered.ca:443",
+    username: "4a2277c3086875e0dd39eec5",
+    credential: "vzFuqmL2yuT2t5N5",
+  },
+  {
+    urls: "turns:global.relay.metered.ca:443?transport=tcp",
+    username: "4a2277c3086875e0dd39eec5",
+    credential: "vzFuqmL2yuT2t5N5",
+  },
+];
+const config = {
+  appId: 'battleship-p2p-game', // Unique app ID to avoid collisions
+  rtcConfig: { iceServers }
+};
+let room = null;
+let sendReady, getReady, sendMove, getMove, sendResult, getResult, sendRematch, getRematch;
+// Generate Room ID button logic (added)
+const generateBtn = document.getElementById("generate-room");
+const controlsDiv = document.querySelector('main > div:first-child'); // The div with input/buttons
+generateBtn.addEventListener("click", () => {
+  const roomId = crypto.randomUUID();
+  opponentInput.value = roomId;
+  statusEl.textContent = "Room ID generated! Share it with your opponent.";
+  // Create shareable link and append to controls
+  const shareP = document.createElement('p');
+  shareP.innerHTML = `Share this link: <a href="${window.location.origin}${window.location.pathname}?room=${roomId}">Join Game</a>`;
+  controlsDiv.appendChild(shareP);
+});
+// Connect (Join Room) button
+connectBtn.addEventListener("click", () => {
+  const roomId = opponentInput.value.trim();
+  if (!roomId) {
+    statusEl.textContent = "Status: Enter or generate a Room ID first.";
+    return;
+  }
+  statusEl.textContent = "Status: Joining room...";
+  console.log('Joining room:', roomId);
+  room = joinRoom(config, roomId);
+  // Setup actions for data exchange
+  [sendReady, getReady] = room.makeAction('ready');
+  [sendMove, getMove] = room.makeAction('move');
+  [sendResult, getResult] = room.makeAction('result');
+  [sendRematch, getRematch] = room.makeAction('rematch');
+  // Listen for opponent joining (for status update)
+  room.onPeerJoin(peerId => {
+    console.log('Opponent joined:', peerId);
+    statusEl.textContent = "Status: Connected. Place ships...";
+    if (ready) {
+      sendReady({ type: "ready" });
+    }
+  });
+  // Handle incoming data
+  getReady((data, peerId) => {
+    console.log('Received ready from:', peerId);
+    opponentReady = true;
+    statusEl.textContent = "Status: Opponent is ready!";
+    if (ready) startGame();
+  });
+  getMove((data, peerId) => {
+    console.log('Received move:', data);
+    if (!gameStarted) return;
+    handleMove(data.x, data.y);
+  });
+  getResult((data, peerId) => {
+    console.log('Received result:', data);
+    if (!gameStarted) return;
+    handleResult(data);
+  });
+  getRematch((data, peerId) => {
+    console.log('Received rematch request from:', peerId);
+    opponentRematchReady = true;
+    statusEl.textContent = "Opponent wants a rematch!";
+    if (rematchReady) resetGame();
+  });
+  // Handle disconnects
+  room.onPeerLeave(peerId => {
+    statusEl.textContent = "Status: Opponent disconnected.";
+    console.log('Opponent left:', peerId);
+    gameStarted = false;
+  });
+  // Set my ID (Trystero's selfId)
+  myIdEl.textContent = selfId;
+});
+// Ready button
+readyBtn.addEventListener("click", () => {
+  if (!allShipsPlaced()) return;
+  ready = true;
+  readyBtn.disabled = true;
+  if (room) {
+    console.log('Sending ready');
+    sendReady({ type: "ready" });
+    statusEl.textContent = "Status: You are ready! Waiting for opponent...";
+  } else {
+    statusEl.textContent = "Status: Join a room first.";
+    ready = false;
+    readyBtn.disabled = false;
+    return;
+  }
+  if (opponentReady) startGame();
+});
+// Rematch button
+rematchBtn.addEventListener("click", () => {
+  rematchReady = true;
+  rematchBtn.disabled = true;
+  if (room) {
+    console.log('Sending rematch');
+    sendRematch({ type: "rematch" });
+    statusEl.textContent = "Waiting for opponent to accept rematch...";
+  } else {
+    statusEl.textContent = "Status: Join a room first.";
+    rematchReady = false;
+    rematchBtn.disabled = false;
+    return;
+  }
+  if (opponentRematchReady) resetGame();
+});
+function startGame() {
+  gameStarted = true;
+  orientationBtn.style.display = "none";
+  resetBtn.style.display = "none";
+  rematchBtn.style.display = "none";
+  statusEl.textContent = "Status: Game started!";
+  // Dynamically get opponent ID
+  const peers = Object.keys(room.getPeers());
+  if (peers.length !== 1) {
+    statusEl.textContent = "Status: Error - Must be exactly 2 players.";
+    console.error('Unexpected number of peers:', peers.length);
+    gameStarted = false;
+    return;
+  }
+  const opponentId = peers[0];
+  if (selfId === opponentId) {
+    statusEl.textContent = "Status: Error - Duplicate peer ID detected. This usually happens when testing both players in the same browser (peer IDs are persisted in localStorage). Try using different browsers, incognito mode for one player, or clearing localStorage.";
+    gameStarted = false;
+    return;
+  }
+  // Decide who starts: lexicographic by selfId and opponentId
+  if (selfId < opponentId) {
+    myTurn = true;
+    statusEl.textContent = "Status: Your turn!";
+  } else {
+    myTurn = false;
+    statusEl.textContent = "Status: Opponent's turn...";
+  }
+  // Remove placement listeners from my board
+  myBoard.flat().forEach(cell => {
+    cell.el.removeEventListener("click", placeShipAttempt);
+    cell.el.removeEventListener("mouseover", previewShip);
+    cell.el.removeEventListener("mouseout", clearPreview);
+  });
+}
+function resetGame() {
+  myBoard = createBoard(myBoardEl, true);
+  opponentBoard = createBoard(opponentBoardEl, false);
+  shipsToPlace.forEach(ship => {
+    ship.placed = false;
+    ship.positions = [];
+  });
+  selectNextShip();
+  myHits = 0;
+  opponentHits = 0;
+  ready = false;
+  opponentReady = false;
+  rematchReady = false;
+  opponentRematchReady = false;
+  gameStarted = false;
+  readyBtn.style.display = "none";
+  rematchBtn.style.display = "none";
+  rematchBtn.disabled = false;
+  readyBtn.disabled = false;
+  orientationBtn.style.display = "block";
+  resetBtn.style.display = "none";
+  statusEl.textContent = "Place your ships for the next game.";
+  // Re-add placement listeners to my board
+  myBoard.flat().forEach(cell => {
+    cell.el.addEventListener("click", placeShipAttempt);
+    cell.el.addEventListener("mouseover", previewShip);
+    cell.el.addEventListener("mouseout", clearPreview);
+  });
+}
+function handleMove(x, y) {
+  if (!gameStarted) return;
+  const cell = myBoard[y][x];
+  if (cell.attacked) return; // Should not happen
+  cell.attacked = true;
+  let hit = false;
+  let surrounds = [];
+  if (cell.hasShip) {
+    cell.hit = true;
+    cell.el.classList.add("hit");
+    hit = true;
+    opponentHits++;
+    hitSound.play().catch(() => {});
+    if ('vibrate' in navigator) {
+      navigator.vibrate(200);
+    }
+    if (opponentHits === totalShipCells) {
+      statusEl.textContent = "Status: You lost!";
+      defeatSound.play().catch(() => {});
+      if ('vibrate' in navigator) {
+        navigator.vibrate(500);
       }
-
-      function handleMoveResult(x,y,result){
-        const c = cellAt(opBoardEl,x,y);
-        if(result==='hit' || result==='sunk'){ state.opBoard[y][x]=2; c.classList.remove('target'); c.classList.add('hit'); if(result==='sunk'){ state.opSunkCount++; }
-        } else { state.opBoard[y][x]=3; c.classList.remove('target'); c.classList.add('miss'); }
-      }
-
-      function checkVictory(){
-        const totalShips = SHIPS.length; // counting ships sunk
-        if(state.opSunkCount>=totalShips){ setStatus('You win!'); log('You win!'); return true; }
-        if(state.sunkCount>=totalShips){ setStatus('You lose.'); log('You lose.'); return true; }
-        return false;
-      }
-
-      // Connection setup
-      function initPeer(){
-        setStatus('Connecting to PeerJS…');
-        const peer = new Peer(undefined, {
-          config: {
-            iceServers: [
-              { urls: 'stun:stun.l.google.com:19302' },
-              { urls: 'stun:global.stun.twilio.com:3478?transport=udp' }
-            ]
+      gameStarted = false;
+      rematchBtn.style.display = "block";
+    } else {
+      // Calculate deduced misses around this hit
+      const hitPos = { x, y };
+      const sunkShip = shipsToPlace.find(ship => ship.positions.some(p => p.x === hitPos.x && p.y === hitPos.y));
+      if (sunkShip) {
+        const unhitPositions = sunkShip.positions.filter(p => !myBoard[p.y][p.x].hit);
+        const surroundSet = new Set();
+        const dirs = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
+        dirs.forEach(([dx, dy]) => {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 &&
+              !myBoard[ny][nx].attacked &&
+              !unhitPositions.some(p => p.x === nx && p.y === ny)) {
+            surroundSet.add(`${nx},${ny}`);
           }
         });
-
-        state.peer = peer;
-
-        peer.on('open', (id) => { state.myId = id; myIdInp.value = id; setStatus('Share your ID or connect to an opponent.'); log('Peer open: ' + id); });
-        peer.on('error', (err) => { setStatus('Peer error: ' + err.type); log('Peer error: ' + err); });
-        peer.on('disconnected', () => { setStatus('Disconnected. Trying to reconnect…'); log('Peer disconnected.'); peer.reconnect(); });
-        peer.on('close', () => { setStatus('Peer closed.'); log('Peer closed.'); });
-
-        // Incoming connection
-        peer.on('connection', (conn) => {
-          if(state.conn && state.conn.open){ conn.close(); return; } // allow single opponent
-          attachConn(conn);
+        surrounds = Array.from(surroundSet).map(key => {
+          const [sx, sy] = key.split(',');
+          return { x: parseInt(sx), y: parseInt(sy) };
         });
       }
-
-      function attachConn(conn){
-        state.conn = conn;
-        setStatus('Connecting…');
-
-        conn.on('open', () => {
-          setStatus('Connected to opponent.');
-          log('Data channel open.');
-          sendMsg('hello', { id: state.myId });
-          updateTargetability();
-        });
-
-        conn.on('data', (msg) => {
-          const { type, payload } = msg || {};
-          if(type==='hello'){ log('Opponent hello: ' + (payload?.id||'')); }
-          else if(type==='ready'){ state.opReady = true; log('Opponent is Ready.'); onBothReady(); }
-          else if(type==='move'){
-            const {x,y} = payload;
-            const result = applyShot(x,y);
-            sendMsg('result', { x,y,result });
-            if(checkVictory()) return;
-            state.myTurn = true; updateTurnUI();
-          }
-          else if(type==='result'){
-            const {x,y,result} = payload;
-            handleMoveResult(x,y,result);
-            if(checkVictory()) return;
-          }
-          else if(type==='reset'){
-            doReset(false);
-          }
-        });
-
-        conn.on('close', () => { setStatus('Connection closed.'); log('Connection closed.'); updateTargetability(); });
-        conn.on('error', (e) => { setStatus('Connection error.'); log('Conn error: ' + e); });
+    }
+  } else {
+    cell.el.classList.add("miss");
+  }
+  // Send result
+  console.log('Sending result:', { type: "result", x, y, hit, surrounds });
+  sendResult({ type: "result", x, y, hit, surrounds });
+  if (!hit) {
+    myTurn = true;
+    statusEl.textContent = "Status: Your turn!";
+  } else if (opponentHits < totalShipCells) {
+    statusEl.textContent = "Status: Opponent's turn..."; // Opponent hit, so they continue (only if not game over)
+  }
+}
+function handleResult(data) {
+  if (!gameStarted) return;
+  const cell = opponentBoard[data.y][data.x].el; // Note: opponentBoard uses .el
+  if (data.hit) {
+    cell.classList.add("hit");
+    myHits++;
+    hitSound.play().catch(() => {});
+    if ('vibrate' in navigator) {
+      navigator.vibrate(200);
+    }
+    if (myHits === totalShipCells) {
+      statusEl.textContent = "Status: You win!";
+      victorySound.play().catch(() => {});
+      if ('vibrate' in navigator) {
+        navigator.vibrate(500);
       }
-
-      // UI listeners
-      connectBtn?.addEventListener('click', () => {
-        const pid = (peerIdInp.value||'').trim();
-        if(!pid){ alert('Enter opponent Peer ID'); return; }
-        if(!state.peer){ alert('Peer not ready'); return; }
-        const conn = state.peer.connect(pid, { reliable: true });
-        attachConn(conn);
-      });
-
-      copyBtn?.addEventListener('click', async () => {
-        try { await navigator.clipboard.writeText(myIdInp.value||''); copyBtn.textContent='Copied!'; setTimeout(()=>copyBtn.textContent='Copy',1000); }
-        catch(e){ alert('Copy failed.'); }
-      });
-
-      randomBtn?.addEventListener('click', randomPlacement);
-
-      readyBtn?.addEventListener('click', () => {
-        if(!state.conn || !state.conn.open){ alert('Connect to an opponent first.'); return; }
-        if(state.ready){ log('Already Ready.'); return; }
-        if(state.ships.length===0){ randomPlacement(); }
-        state.ready = true; readyBtn.disabled = true; log('You are Ready.'); setStatus('Waiting for opponent to be Ready…');
-        sendMsg('ready', {});
-        onBothReady();
-      });
-
-      resetBtn?.addEventListener('click', () => {
-        doReset(true);
-      });
-
-      function doReset(informPeer){
-        state.ready=false; state.opReady=false; readyBtn.disabled=false;
-        clearBoards(); randomPlacement();
-        setStatus('Game reset.');
-        if(informPeer) sendMsg('reset', {});
-        updateTargetability();
-      }
-
-      function onBothReady(){
-        if(state.ready && state.opReady){
-          const iStart = decideFirstTurn(state.myId, state.conn.peer);
-          state.myTurn = iStart;
-          updateTurnUI();
-          setStatus('Both Ready. Game start.' + (iStart ? ' You go first.' : ' Opponent goes first.'));
-          log('Both Ready. ' + (iStart? 'You start.':'Opponent starts.'));
-          updateTargetability();
-        }
-      }
-
-      // Boot
-      buildBoards();
-      randomPlacement();
-      initPeer();
-    })();
+      gameStarted = false;
+      rematchBtn.style.display = "block";
+      return;
+    }
+    data.surrounds.forEach(s => {
+      const sCell = opponentBoard[s.y][s.x].el;
+      sCell.classList.add("deduced-miss");
+    });
+    myTurn = true;
+    statusEl.textContent = "Status: Your turn!"; // Hit, continue
+  } else {
+    cell.classList.add("miss");
+    myTurn = false;
+    statusEl.textContent = "Status: Opponent's turn..."; // Miss, opponent's turn
+  }
+}

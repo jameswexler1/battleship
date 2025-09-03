@@ -1,4 +1,4 @@
 ---
 title: "Battleship"
-layout: "battleship/single"
+type: "battleship"
 ---

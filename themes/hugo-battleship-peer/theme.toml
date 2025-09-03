@@ -1,2 +1,4 @@
 name = "hugo-battleship-peer"
-min_version = "0.120.0"
+license = "MIT"
+licenselink = "https://opensource.org/licenses/MIT"
+description = "Minimal theme for Battleship PeerJS game"

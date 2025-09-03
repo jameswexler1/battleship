@@ -1,44 +1,25 @@
 {{ define "main" }}
-<section class="game">
-  <div class="panel">
-    <div class="id-row">
-      <label>Your Peer ID</label>
-      <input id="myId" type="text" readonly placeholder="connecting…"/>
-      <button id="copyId" class="btn">Copy</button>
-    </div>
+<div>
+  <strong>Your ID:</strong> <span id="my-id">waiting...</span><br>
+  <input type="text" id="opponent-id" placeholder="Room ID">
+  <button id="generate-room">Generate Room ID</button>
+  <button id="connect-btn">Join Room</button>
+</div>
 
-    <div class="id-row">
-      <label>Opponent Peer ID</label>
-      <input id="peerId" type="text" placeholder="paste opponent id"/>
-      <button id="connectBtn" class="btn">Connect</button>
-    </div>
+<div id="status">Status: Waiting...</div>
 
-    <div class="status" id="status">Status: waiting for connection…</div>
+<button id="ready-btn">I'm Ready</button>
 
-    <div class="controls">
-      <button id="randomizeBtn" class="btn">Randomize Ships</button>
-      <button id="readyBtn" class="btn primary">I’m Ready</button>
-      <button id="resetBtn" class="btn danger">Reset</button>
-      <span class="turn" id="turnIndicator">Turn: —</span>
-    </div>
+<div id="boards">
+  <div>
+    <h3>Your Board</h3>
+    <div id="my-board" class="board"></div>
   </div>
-
-  <div class="boards">
-    <div class="board">
-      <h3>Your Board</h3>
-      <div id="myBoard" class="grid" data-board="me"></div>
-      <small>Place ships before marking Ready. Random placement is provided for speed.</small>
-    </div>
-    <div class="board">
-      <h3>Opponent Board</h3>
-      <div id="opBoard" class="grid" data-board="op"></div>
-      <small>Click a cell to fire on your turn.</small>
-    </div>
+  <div>
+    <h3>Opponent's Board</h3>
+    <div id="opponent-board" class="board"></div>
   </div>
+</div>
 
-  <details class="log-wrap">
-    <summary>Game log</summary>
-    <pre id="log" class="log"></pre>
-  </details>
-</section>
+<script type="module" src="/js/battleship.js"></script>
 {{ end }}
