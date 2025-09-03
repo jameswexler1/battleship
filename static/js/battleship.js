@@ -32,10 +32,10 @@ let shipsToPlace = [
   { name: "Destroyer 1", size: 2, placed: false, positions: [] },
   { name: "Destroyer 2", size: 2, placed: false, positions: [] },
   { name: "Destroyer 3", size: 2, placed: false, positions: [] },
-  { name: "Submarine 1", size: 1, placed: false, positions: [] },
-  { name: "Submarine 2", size: 1, placed: false, positions: [] },
-  { name: "Submarine 3", size: 1, placed: false, positions: [] },
-  { name: "Submarine 4", size: 1, placed: false, positions: [] }
+  { name: "Patrol Boat 1", size: 1, placed: false, positions: [] },
+  { name: "Patrol Boat 2", size: 1, placed: false, positions: [] },
+  { name: "Patrol Boat 3", size: 1, placed: false, positions: [] },
+  { name: "Patrol Boat 4", size: 1, placed: false, positions: [] }
 ];
 let opponentShips = shipsToPlace.map(ship => ({ name: ship.name, size: ship.size, sunk: false }));
 let currentShip = null;
@@ -222,9 +222,12 @@ const fleetStatusEl = document.createElement("div");
 fleetStatusEl.id = "fleet-status";
 const opponentContainer = opponentBoardEl.parentNode;
 const boardWrapper = document.createElement('div');
+boardWrapper.id = "opponent-wrapper";
 boardWrapper.style.display = 'flex';
 boardWrapper.style.flexDirection = 'row';
 boardWrapper.style.alignItems = 'flex-start';
+boardWrapper.style.width = 'fit-content';
+boardWrapper.style.margin = '0 auto';
 opponentContainer.insertBefore(boardWrapper, opponentBoardEl);
 boardWrapper.appendChild(opponentBoardEl);
 boardWrapper.appendChild(fleetStatusEl);
@@ -246,6 +249,16 @@ style.textContent = `
 }
 .sunk .ship-cell {
   background-color: red;
+}
+@media (max-width: 768px) {
+  #opponent-wrapper {
+    flex-direction: column;
+    align-items: center;
+  }
+  #fleet-status {
+    margin-left: 0 !important;
+    margin-top: 20px;
+  }
 }
 `;
 document.head.appendChild(style);
