@@ -254,7 +254,7 @@ const controlsDiv = document.querySelector('main > div:first-child'); // The div
 generateBtn.addEventListener("click", () => {
   const roomId = crypto.randomUUID();
   opponentInput.value = roomId;
-  statusEl.textContent = "Room ID generated! Share it with your opponent.";
+  connectBtn.click(); // Auto-join the generated room
   // Create shareable link and append to controls
   const shareP = document.createElement('p');
   shareP.innerHTML = `Share this link: <a href="${window.location.origin}${window.location.pathname}?room=${roomId}">Join Game</a>`;
