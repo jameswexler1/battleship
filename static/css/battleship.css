@@ -193,3 +193,28 @@ button:hover {
     padding: 0.5rem 1.5rem;
   }
 }
+.site-header {
+  display: flex;
+  align-items: center; /* vertically center items */
+  gap: 1rem;           /* space between button and title */
+  padding: 1rem;
+}
+
+.back-button {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background-color: #2563eb;
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.back-button:hover {
+  background-color: #1e4fb8;
+}
+
+.site-title {
+  margin: 0; /* remove default h1 margin */
+  font-size: 2rem;
+}

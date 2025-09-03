@@ -4,12 +4,17 @@
   {{ partial "head.html" . }}
 </head>
 <body>
-  <header>
-    <h1>{{ .Site.Title }}</h1>
+  <header class="site-header">
+    {{ if not .IsHome }}
+      <a href="{{ "/" | relURL }}" class="back-button">⬅ Back</a>
+    {{ end }}
+    <h1 class="site-title">{{ .Site.Title }}</h1>
   </header>
+
   <main>
     {{ block "main" . }}{{ end }}
   </main>
+
   <footer>
     {{ partial "footer.html" . }}
   </footer>
