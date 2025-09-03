@@ -37,7 +37,6 @@ let shipsToPlace = [
   { name: "Patrol Boat 3", size: 1, placed: false, positions: [] },
   { name: "Patrol Boat 4", size: 1, placed: false, positions: [] }
 ];
-let opponentShips = shipsToPlace.map(ship => ({ name: ship.name, size: ship.size, sunk: false }));
 let currentShip = null;
 let orientation = "horizontal"; // Default orientation
 let ready = false;
@@ -217,70 +216,6 @@ myBoard = createBoard(myBoardEl, true);
 opponentBoard = createBoard(opponentBoardEl, false);
 selectNextShip();
 readyBtn.style.display = "none";
-// Fleet status display
-const fleetStatusEl = document.createElement("div");
-fleetStatusEl.id = "fleet-status";
-const opponentContainer = opponentBoardEl.parentNode;
-const boardWrapper = document.createElement('div');
-boardWrapper.id = "opponent-wrapper";
-boardWrapper.style.display = 'flex';
-boardWrapper.style.flexDirection = 'row';
-boardWrapper.style.alignItems = 'flex-start';
-boardWrapper.style.width = 'fit-content';
-boardWrapper.style.margin = '0 auto';
-opponentContainer.insertBefore(boardWrapper, opponentBoardEl);
-boardWrapper.appendChild(opponentBoardEl);
-boardWrapper.appendChild(fleetStatusEl);
-fleetStatusEl.style.marginLeft = '20px';
-const style = document.createElement("style");
-style.textContent = `
-.ship-status {
-  display: flex;
-  align-items: center;
-  margin-bottom: 5px;
-}
-.ship-cell {
-  display: inline-block;
-  width: 15px;
-  height: 15px;
-  background-color: gray;
-  margin: 1px;
-  border: 1px solid black;
-}
-.sunk .ship-cell {
-  background-color: red;
-}
-@media (max-width: 768px) {
-  #opponent-wrapper {
-    flex-direction: column;
-    align-items: center;
-  }
-  #fleet-status {
-    margin-left: 0 !important;
-    margin-top: 20px;
-  }
-}
-`;
-document.head.appendChild(style);
-function updateFleetStatus() {
-  fleetStatusEl.innerHTML = "<h3>Opponent's Fleet</h3>";
-  opponentShips.forEach(ship => {
-    const shipDiv = document.createElement("div");
-    shipDiv.classList.add("ship-status");
-    if (ship.sunk) shipDiv.classList.add("sunk");
-    const nameSpan = document.createElement("span");
-    nameSpan.textContent = `${ship.name} (${ship.size}): `;
-    nameSpan.style.marginRight = "5px";
-    shipDiv.appendChild(nameSpan);
-    for (let i = 0; i < ship.size; i++) {
-      const cell = document.createElement("span");
-      cell.classList.add("ship-cell");
-      shipDiv.appendChild(cell);
-    }
-    fleetStatusEl.appendChild(shipDiv);
-  });
-}
-updateFleetStatus();
 // Your Metered iceServers array with credentials
 const iceServers = [
   {
@@ -455,11 +390,7 @@ function resetGame() {
     ship.placed = false;
     ship.positions = [];
   });
-  opponentShips.forEach(ship => {
-    ship.sunk = false;
-  });
   selectNextShip();
-  updateFleetStatus();
   myHits = 0;
   opponentHits = 0;
   ready = false;
@@ -488,8 +419,6 @@ function handleMove(x, y) {
   cell.attacked = true;
   let hit = false;
   let surrounds = [];
-  let sunk = false;
-  let shipSize = 0;
   if (cell.hasShip) {
     cell.hit = true;
     cell.el.classList.add("hit");
@@ -505,10 +434,6 @@ function handleMove(x, y) {
       const hitPositions = sunkShip.positions.filter(p => myBoard[p.y][p.x].hit);
       const hitCount = hitPositions.length;
       const isSunk = hitCount === sunkShip.size;
-      if (isSunk) {
-        sunk = true;
-        shipSize = sunkShip.size;
-      }
       const surroundSet = new Set();
       const dirs = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
       const diagDirs = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
@@ -636,13 +561,8 @@ function handleMove(x, y) {
     cell.el.classList.add("miss");
   }
   // Send result
-  const result = { type: "result", x, y, hit, surrounds };
-  if (sunk) {
-    result.sunk = true;
-    result.size = shipSize;
-  }
-  console.log('Sending result:', result);
-  sendResult(result);
+  console.log('Sending result:', { type: "result", x, y, hit, surrounds });
+  sendResult({ type: "result", x, y, hit, surrounds });
   if (!hit) {
     myTurn = true;
     statusEl.textContent = "Status: Your turn!";
@@ -674,13 +594,6 @@ function handleResult(data) {
       const sCell = opponentBoard[s.y][s.x].el;
       sCell.classList.add("deduced-miss");
     });
-    if (data.sunk) {
-      const shipToSink = opponentShips.find(s => !s.sunk && s.size === data.size);
-      if (shipToSink) {
-        shipToSink.sunk = true;
-        updateFleetStatus();
-      }
-    }
     myTurn = true;
     statusEl.textContent = "Status: Your turn!"; // Hit, continue
   } else {
