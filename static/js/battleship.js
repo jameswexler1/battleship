@@ -46,8 +46,6 @@ let opponentRematchReady = false;
 let gameStarted = false;
 let myHits = 0;
 let opponentHits = 0;
-let moveHistory = [];
-let opponentId = null;
 const totalShipCells = 20; // 4 + 3+3 + 2+2+2 + 1+1+1+1
 const hitSound = new Audio('https://therecordist.com/assets/sound/mp3_14/Explosion_Large_Blast_1.mp3');
 const victorySound = new Audio('https://orangefreesounds.com/wp-content/uploads/2023/06/Victory-fanfare-sound-effect.mp3');
@@ -76,7 +74,7 @@ function adjustStatusPosition() {
 window.addEventListener('resize', adjustStatusPosition);
 adjustStatusPosition(); // Initial check
 // Create 10x10 grids
-function createBoard(el, addPlacement = false, addAttack = false) {
+function createBoard(el, isMyBoard) {
   const grid = [];
   el.innerHTML = ""; // Clear existing cells
   for (let y = 0; y < 10; y++) {
@@ -86,12 +84,11 @@ function createBoard(el, addPlacement = false, addAttack = false) {
       cell.classList.add("cell");
       cell.dataset.x = x;
       cell.dataset.y = y;
-      if (addPlacement) {
+      if (isMyBoard) {
         cell.addEventListener("click", (e) => placeShipAttempt(e.target));
         cell.addEventListener("mouseover", (e) => previewShip(e.target));
         cell.addEventListener("mouseout", clearPreview);
-      }
-      if (addAttack) {
+      } else {
         cell.addEventListener("click", () => {
           if (myTurn && gameStarted && room && Object.keys(room.getPeers()).length === 1 && !cell.classList.contains("hit") && !cell.classList.contains("miss") && !cell.classList.contains("deduced-miss")) {
             sendMove({ type: "move", x, y });
@@ -135,7 +132,6 @@ function placeShipAttempt(cell) {
       resetBtn.style.display = "block";
       statusEl.textContent = "All ships placed! Click 'I'm Ready' when ready.";
     }
-    saveState();
   }
 }
 // Check if ship can be placed (no overlap, in bounds, no adjacent ships)
@@ -206,7 +202,7 @@ function allShipsPlaced() {
 }
 // Reset ship placement
 resetBtn.addEventListener("click", () => {
-  myBoard = createBoard(myBoardEl, true, false);
+  myBoard = createBoard(myBoardEl, true);
   shipsToPlace.forEach(ship => {
     ship.placed = false;
     ship.positions = [];
@@ -214,14 +210,10 @@ resetBtn.addEventListener("click", () => {
   selectNextShip();
   readyBtn.style.display = "none";
   resetBtn.style.display = "none";
-  if (room) {
-    const storageKey = `battleship_state_${opponentInput.value.trim()}`;
-    localStorage.removeItem(storageKey);
-  }
 });
 // Initialize boards
-myBoard = createBoard(myBoardEl, true, false);
-opponentBoard = createBoard(opponentBoardEl, false, true);
+myBoard = createBoard(myBoardEl, true);
+opponentBoard = createBoard(opponentBoardEl, false);
 selectNextShip();
 readyBtn.style.display = "none";
 // Your Metered iceServers array with credentials, enhanced with more STUN servers
@@ -296,7 +288,6 @@ connectBtn.addEventListener("click", () => {
   statusEl.textContent = "Status: Joining room...";
   console.log('Joining room:', roomId);
   room = joinRoom(config, roomId);
-  loadState(roomId);
   // Setup actions for data exchange
   [sendReady, getReady] = room.makeAction('ready');
   [sendMove, getMove] = room.makeAction('move');
@@ -305,14 +296,7 @@ connectBtn.addEventListener("click", () => {
   // Listen for opponent joining (for status update)
   room.onPeerJoin(peerId => {
     console.log('Opponent joined:', peerId);
-    if (opponentId && peerId === opponentId) {
-      statusEl.textContent = "Status: Opponent reconnected!";
-      if (gameStarted) {
-        statusEl.textContent = myTurn ? "Status: Your turn!" : "Status: Opponent's turn...";
-      }
-    } else {
-      statusEl.textContent = "Status: Connected. Place ships...";
-    }
+    statusEl.textContent = "Status: Connected. Place ships...";
     if (ready) {
       sendReady({ type: "ready" });
     }
@@ -342,8 +326,9 @@ connectBtn.addEventListener("click", () => {
   });
   // Handle disconnects
   room.onPeerLeave(peerId => {
-    statusEl.textContent = gameStarted ? "Status: Opponent disconnected. Waiting for reconnect..." : "Status: Opponent disconnected.";
+    statusEl.textContent = "Status: Opponent disconnected.";
     console.log('Opponent left:', peerId);
+    gameStarted = false;
   });
   // Set my ID (Trystero's selfId)
   myIdEl.textContent = selfId;
@@ -353,9 +338,6 @@ readyBtn.addEventListener("click", () => {
   if (!allShipsPlaced()) return;
   ready = true;
   readyBtn.disabled = true;
-  orientationBtn.style.display = "none";
-  resetBtn.style.display = "none";
-  saveState();
   if (room) {
     console.log('Sending ready');
     sendReady({ type: "ready" });
@@ -398,7 +380,7 @@ function startGame() {
     gameStarted = false;
     return;
   }
-  opponentId = peers[0];
+  const opponentId = peers[0];
   if (selfId === opponentId) {
     statusEl.textContent = "Status: Error - Duplicate peer ID detected. This usually happens when testing both players in the same browser (peer IDs are persisted in localStorage). Try using different browsers, incognito mode for one player, or clearing localStorage.";
     gameStarted = false;
@@ -418,13 +400,10 @@ function startGame() {
     cell.el.removeEventListener("mouseover", previewShip);
     cell.el.removeEventListener("mouseout", clearPreview);
   });
-  saveState();
 }
 function resetGame() {
-  const storageKey = `battleship_state_${opponentInput.value.trim()}`;
-  localStorage.removeItem(storageKey);
-  myBoard = createBoard(myBoardEl, true, false);
-  opponentBoard = createBoard(opponentBoardEl, false, true);
+  myBoard = createBoard(myBoardEl, true);
+  opponentBoard = createBoard(opponentBoardEl, false);
   shipsToPlace.forEach(ship => {
     ship.placed = false;
     ship.positions = [];
@@ -432,8 +411,6 @@ function resetGame() {
   selectNextShip();
   myHits = 0;
   opponentHits = 0;
-  moveHistory = [];
-  opponentId = null;
   ready = false;
   opponentReady = false;
   rematchReady = false;
@@ -446,6 +423,12 @@ function resetGame() {
   orientationBtn.style.display = "block";
   resetBtn.style.display = "none";
   statusEl.textContent = "Place your ships for the next game.";
+  // Re-add placement listeners to my board
+  myBoard.flat().forEach(cell => {
+    cell.el.addEventListener("click", placeShipAttempt);
+    cell.el.addEventListener("mouseover", previewShip);
+    cell.el.addEventListener("mouseout", clearPreview);
+  });
 }
 function handleMove(x, y) {
   if (!gameStarted) return;
@@ -591,12 +574,10 @@ function handleMove(x, y) {
       }
       gameStarted = false;
       rematchBtn.style.display = "block";
-      saveState();
     }
   } else {
     cell.el.classList.add("miss");
   }
-  moveHistory.push({ player: 'opponent', x, y, hit });
   // Send result
   console.log('Sending result:', { type: "result", x, y, hit, surrounds });
   sendResult({ type: "result", x, y, hit, surrounds });
@@ -604,10 +585,8 @@ function handleMove(x, y) {
     myTurn = true;
     statusEl.textContent = "Status: Your turn!";
   } else if (opponentHits < totalShipCells) {
-    myTurn = false;
     statusEl.textContent = "Status: Opponent's turn..."; // Opponent hit, so they continue (only if not game over)
   }
-  saveState();
 }
 function handleResult(data) {
   if (!gameStarted) return;
@@ -619,10 +598,6 @@ function handleResult(data) {
     if ('vibrate' in navigator) {
       navigator.vibrate(200);
     }
-    data.surrounds.forEach(s => {
-      const sCell = opponentBoard[s.y][s.x].el;
-      sCell.classList.add("deduced-miss");
-    });
     if (myHits === totalShipCells) {
       statusEl.textContent = "Status: You win!";
       victorySound.play().catch(() => {});
@@ -631,107 +606,17 @@ function handleResult(data) {
       }
       gameStarted = false;
       rematchBtn.style.display = "block";
-      saveState();
       return;
     }
+    data.surrounds.forEach(s => {
+      const sCell = opponentBoard[s.y][s.x].el;
+      sCell.classList.add("deduced-miss");
+    });
     myTurn = true;
     statusEl.textContent = "Status: Your turn!"; // Hit, continue
   } else {
     cell.classList.add("miss");
     myTurn = false;
     statusEl.textContent = "Status: Opponent's turn..."; // Miss, opponent's turn
-  }
-  moveHistory.push({ player: 'me', x: data.x, y: data.y, hit: data.hit, surrounds: data.surrounds });
-  saveState();
-}
-function saveState() {
-  const roomId = opponentInput.value.trim();
-  if (!roomId) return;
-  const storageKey = `battleship_state_${roomId}`;
-  localStorage.setItem(storageKey, JSON.stringify({
-    shipsToPlace,
-    moveHistory,
-    opponentId,
-    myTurn,
-    gameStarted,
-    ready,
-    myHits,
-    opponentHits
-  }));
-}
-function loadState(roomId) {
-  const storageKey = `battleship_state_${roomId}`;
-  const savedState = localStorage.getItem(storageKey);
-  if (savedState) {
-    const state = JSON.parse(savedState);
-    shipsToPlace = state.shipsToPlace;
-    moveHistory = state.moveHistory;
-    opponentId = state.opponentId;
-    myTurn = state.myTurn;
-    gameStarted = state.gameStarted;
-    ready = state.ready;
-    myHits = state.myHits;
-    opponentHits = state.opponentHits;
-    const addPlacement = !gameStarted;
-    myBoard = createBoard(myBoardEl, addPlacement, false);
-    opponentBoard = createBoard(opponentBoardEl, false, true);
-    // Restore ships
-    shipsToPlace.forEach(ship => {
-      ship.placed = ship.positions.length > 0;
-      if (ship.placed) {
-        ship.positions.forEach(p => {
-          myBoard[p.y][p.x].hasShip = true;
-          myBoard[p.y][p.x].el.classList.add("ship");
-        });
-      }
-    });
-    selectNextShip();
-    if (allShipsPlaced()) {
-      readyBtn.style.display = "block";
-      resetBtn.style.display = "block";
-      if (ready) {
-        readyBtn.disabled = true;
-        readyBtn.style.display = "none";
-        resetBtn.style.display = "none";
-        orientationBtn.style.display = "none";
-      }
-    }
-    // Replay moves
-    myHits = 0;
-    opponentHits = 0;
-    moveHistory.forEach(m => {
-      if (m.player === 'opponent') {
-        const cell = myBoard[m.y][m.x];
-        cell.attacked = true;
-        if (m.hit) {
-          cell.hit = true;
-          cell.el.classList.add("hit");
-          opponentHits++;
-        } else {
-          cell.el.classList.add("miss");
-        }
-      } else {
-        const cell = opponentBoard[m.y][m.x].el;
-        cell.classList.add(m.hit ? "hit" : "miss");
-        if (m.hit) {
-          myHits++;
-          m.surrounds.forEach(s => {
-            opponentBoard[s.y][s.x].el.classList.add("deduced-miss");
-          });
-        }
-      }
-    });
-    // Set status and buttons
-    if (myHits === totalShipCells || opponentHits === totalShipCells) {
-      gameStarted = false;
-      rematchBtn.style.display = "block";
-      statusEl.textContent = myHits === totalShipCells ? "Status: You win!" : "Status: You lost!";
-    } else if (gameStarted) {
-      statusEl.textContent = myTurn ? "Status: Your turn!" : "Status: Opponent's turn...";
-    } else if (ready) {
-      statusEl.textContent = "Status: You are ready! Waiting for opponent...";
-    } else {
-      selectNextShip();
-    }
   }
 }
