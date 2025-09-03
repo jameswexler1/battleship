@@ -1,4 +1,4 @@
-import {joinRoom, selfId} from 'https://esm.run/trystero/firebase';
+import {joinRoom, selfId} from 'https://esm.run/trystero/torrent';
 const myBoardEl = document.getElementById("my-board");
 const opponentBoardEl = document.getElementById("opponent-board");
 const statusEl = document.getElementById("status");
@@ -90,7 +90,7 @@ function createBoard(el, isMyBoard) {
         cell.addEventListener("mouseout", clearPreview);
       } else {
         cell.addEventListener("click", () => {
-          if (myTurn && gameStarted && room && Object.keys(room.getPeers()).length === 1 && !cell.classList.contains("hit") && !cell.classList.contains("miss") && !cell.classList.contains("deduced-miss")) {
+          if (myTurn && gameStarted && room && !cell.classList.contains("hit") && !cell.classList.contains("miss") && !cell.classList.contains("deduced-miss")) {
             sendMove({ type: "move", x, y });
             myTurn = false;
             statusEl.textContent = "Status: Waiting for opponent...";
@@ -216,7 +216,7 @@ myBoard = createBoard(myBoardEl, true);
 opponentBoard = createBoard(opponentBoardEl, false);
 selectNextShip();
 readyBtn.style.display = "none";
-// Your Metered iceServers array with credentials, enhanced with more STUN servers
+// Your Metered iceServers array with credentials
 const iceServers = [
   {
     urls: "stun:stun.relay.metered.ca:80",
@@ -241,27 +241,9 @@ const iceServers = [
     username: "4a2277c3086875e0dd39eec5",
     credential: "vzFuqmL2yuT2t5N5",
   },
-  { urls: "stun:stun.l.google.com:19302" },
-  { urls: "stun:stun1.l.google.com:19302" },
-  { urls: "stun:stun2.l.google.com:19302" },
-  { urls: "stun:stun3.l.google.com:19302" },
-  { urls: "stun:stun4.l.google.com:19302" },
-  { urls: "stun:stun.stunprotocol.org:3478" },
-  { urls: "stun:stun.sipgate.net:10000" }, // Europe-focused, good for transatlantic
 ];
-// Your Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyCrb48GgpYRrc-4ZCDv3uSwh5I5f6OjmRI",
-  authDomain: "transferbase-b955d.firebaseapp.com",
-  databaseURL: "https://transferbase-b955d-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "transferbase-b955d",
-  storageBucket: "transferbase-b955d.firebasestorage.app",
-  messagingSenderId: "692979016392",
-  appId: "1:692979016392:web:e5a159bc62a98eedf0fbfd"
-};
 const config = {
   appId: 'battleship-p2p-game', // Unique app ID to avoid collisions
-  firebaseConfig,
   rtcConfig: { iceServers }
 };
 let room = null;
