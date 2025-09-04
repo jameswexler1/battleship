@@ -326,9 +326,6 @@ style.textContent = `
   text-content: "Copied!";
 }
 .mute-btn {
-  position: fixed;
-  top: 10px;
-  right: 10px;
   padding: 8px 16px;
   background-color: #f44336;
   color: white;
@@ -336,7 +333,6 @@ style.textContent = `
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
-  z-index: 1000;
   transition: background-color 0.3s;
 }
 .mute-btn:hover {
@@ -547,7 +543,7 @@ muteBtn.addEventListener("click", () => {
   muteBtn.textContent = isMuted ? "Unmute Sounds" : "Mute Sounds";
   muteBtn.classList.toggle("muted", isMuted);
 });
-document.body.appendChild(muteBtn);
+controlsDiv.appendChild(muteBtn);
 function startGame() {
   gameStarted = true;
   orientationBtn.style.display = "none";
