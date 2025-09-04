@@ -1,4 +1,42 @@
 
+=== ./copiartudo.py ===
+import os
+
+# Scan current directory
+root_dir = "."
+output_file = "merged_output.txt"
+skip_dir = os.path.join(root_dir, "public")  # directory to ignore
+
+with open(output_file, "wb") as out_f:  # open in binary mode for all file types
+    for dirpath, dirnames, filenames in os.walk(root_dir):
+        # Skip hidden directories
+        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+
+        # Skip 'public' directory
+        dirnames[:] = [d for d in dirnames if os.path.join(dirpath, d) != skip_dir]
+
+        for filename in filenames:
+            # Skip hidden files and the output file itself
+            if filename.startswith(".") or filename == output_file:
+                continue
+
+            file_path = os.path.join(dirpath, filename)
+
+            # Write header
+            header = f"\n=== {file_path} ===\n".encode('utf-8')
+            out_f.write(header)
+
+            try:
+                # Read file in binary mode
+                with open(file_path, "rb") as in_f:
+                    out_f.write(in_f.read())
+            except Exception as e:
+                # Log any errors
+                error_msg = f"\n[Error reading {file_path}: {e}]\n".encode('utf-8')
+                out_f.write(error_msg)
+
+            out_f.write(b"\n\n")  # separate files
+
 
 
 === ./netlify.toml ===
@@ -27,7 +65,7 @@ theme = "hugo-battleship-peer"
 
 === ./content/_index.md ===
 ---
-title: "Welcome to Battleship PeerJS Game"
+title: "Welcome to Battleship"
 ---
 # Battleship Online
 Play the classic Battleship game **directly in your browser**, peer-to-peer with your friends.
@@ -170,6 +208,7 @@ button:hover {
   justify-content: center;
   cursor: pointer;
   transition: background 0.15s;
+  position: relative;
 }
 
 .cell:hover {
@@ -189,6 +228,24 @@ button:hover {
 .miss {
   background: #3b82f6 !important;
   box-shadow: inset 0 0 6px #60a5fa;
+}
+
+.deduced-miss {
+  background: #6b7280 !important; /* Gray background */
+  box-shadow: inset 0 0 6px #9ca3af;
+  cursor: default;
+}
+
+.deduced-miss::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 4px;
+  background: #000; /* Small black dot */
+  border-radius: 50%;
 }
 
 .preview {
@@ -219,13 +276,37 @@ button:hover {
     font-size: 1.2rem;
     padding: 0.5rem 1.5rem;
   }
+}
+.site-header {
+  display: flex;
+  align-items: center; /* vertically center items */
+  gap: 1rem;           /* space between button and title */
+  padding: 1rem;
+}
+
+.back-button {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background-color: #2563eb;
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.back-button:hover {
+  background-color: #1e4fb8;
+}
+
+.site-title {
+  margin: 0; /* remove default h1 margin */
+  font-size: 2rem;
 }
 
 
 
 === ./static/js/battleship.js ===
-import {joinRoom, selfId} from 'https://esm.run/trystero/torrent';
-const myBoardEl = document.getElementById("my-board");
+import {joinRoom, selfId} from 'https://esm.run/trystero/torrent'; const myBoardEl = document.getElementById("my-board");
 const opponentBoardEl = document.getElementById("opponent-board");
 const statusEl = document.getElementById("status");
 const myIdEl = document.getElementById("my-id");
@@ -241,34 +322,71 @@ orientationBtn.addEventListener("click", () => {
   orientation = orientation === "horizontal" ? "vertical" : "horizontal";
   orientationBtn.textContent = `Toggle Orientation (${orientation.charAt(0).toUpperCase() + orientation.slice(1)})`;
 });
+const rematchBtn = document.createElement("button");
+rematchBtn.textContent = "Rematch";
+rematchBtn.style.display = "none";
 // Insert buttons after readyBtn (before boards for better visibility)
 readyBtn.parentNode.insertBefore(orientationBtn, readyBtn.nextSibling);
 readyBtn.parentNode.insertBefore(resetBtn, orientationBtn.nextSibling);
+readyBtn.parentNode.insertBefore(rematchBtn, resetBtn.nextSibling);
 let myTurn = false;
 let myBoard = [];
 let opponentBoard = [];
 let shipsToPlace = [
-  { name: "Carrier", size: 5, placed: false },
-  { name: "Battleship", size: 4, placed: false },
-  { name: "Cruiser", size: 3, placed: false },
-  { name: "Submarine", size: 3, placed: false },
-  { name: "Destroyer", size: 2, placed: false }
+  { name: "Battleship", size: 4, placed: false, positions: [] },
+  { name: "Cruiser 1", size: 3, placed: false, positions: [] },
+  { name: "Cruiser 2", size: 3, placed: false, positions: [] },
+  { name: "Destroyer 1", size: 2, placed: false, positions: [] },
+  { name: "Destroyer 2", size: 2, placed: false, positions: [] },
+  { name: "Destroyer 3", size: 2, placed: false, positions: [] },
+  { name: "Patrol Boat 1", size: 1, placed: false, positions: [] },
+  { name: "Patrol Boat 2", size: 1, placed: false, positions: [] },
+  { name: "Patrol Boat 3", size: 1, placed: false, positions: [] },
+  { name: "Patrol Boat 4", size: 1, placed: false, positions: [] }
 ];
 let currentShip = null;
 let orientation = "horizontal"; // Default orientation
 let ready = false;
 let opponentReady = false;
+let rematchReady = false;
+let opponentRematchReady = false;
 let gameStarted = false;
 let myHits = 0;
 let opponentHits = 0;
-const totalShipCells = 17; // 5+4+3+3+2
-// Auto-fill and join if ?room=xxx in URL (for shareable links)
-const urlParams = new URLSearchParams(window.location.search);
-const roomParam = urlParams.get('room');
-if (roomParam) {
-  opponentInput.value = roomParam;
-  connectBtn.click(); // Auto-join
+let isMuted = false;
+const totalShipCells = 20; // 4 + 3+3 + 2+2+2 + 1+1+1+1
+const hitSound = new Audio('https://therecordist.com/assets/sound/mp3_14/Explosion_Large_Blast_1.mp3');
+const victorySound = new Audio('https://orangefreesounds.com/wp-content/uploads/2023/06/Victory-fanfare-sound-effect.mp3');
+const defeatSound = new Audio('https://freesound.org/data/previews/183/183077_2374229-lq.mp3');
+// Move status between boards on mobile
+function adjustStatusPosition() {
+  if (window.innerWidth <= 768) {
+    const yourBoardDiv = document.querySelector('#boards > div:first-child');
+    if (yourBoardDiv && !yourBoardDiv.nextSibling.isEqualNode(statusEl)) {
+      yourBoardDiv.after(statusEl);
+    }
+  } else {
+    const controlsDiv = document.querySelector('main > div:first-child');
+    if (controlsDiv && !controlsDiv.nextSibling.isEqualNode(statusEl)) {
+      controlsDiv.after(statusEl);
+    }
+  }
+  adjustLayout();
 }
+function adjustLayout() {
+  const isMobile = window.innerWidth <= 768;
+  const padding = document.querySelector('.targets-padding');
+  if (padding) {
+    padding.style.display = isMobile ? 'none' : 'block';
+  }
+  const targetsEl = document.getElementById('targets');
+  if (targetsEl) {
+    targetsEl.style.marginLeft = isMobile ? '0' : '40px';
+    targetsEl.style.marginTop = isMobile ? '40px' : '0';
+  }
+}
+window.addEventListener('resize', adjustStatusPosition);
+adjustStatusPosition(); // Initial check
 // Create 10x10 grids
 function createBoard(el, isMyBoard) {
   const grid = [];
@@ -286,7 +404,7 @@ function createBoard(el, isMyBoard) {
         cell.addEventListener("mouseout", clearPreview);
       } else {
         cell.addEventListener("click", () => {
-          if (myTurn && gameStarted && room && !cell.classList.contains("hit") && !cell.classList.contains("miss")) {
+          if (myTurn && gameStarted && room && !cell.classList.contains("hit") && !cell.classList.contains("miss") && !cell.classList.contains("deduced-miss")) {
             sendMove({ type: "move", x, y });
             myTurn = false;
             statusEl.textContent = "Status: Waiting for opponent...";
@@ -294,7 +412,7 @@ function createBoard(el, isMyBoard) {
         });
       }
       el.appendChild(cell);
-      row.push({ hasShip: false, hit: false, el: cell });
+      row.push({ hasShip: false, hit: false, attacked: false, el: cell });
     }
     grid.push(row);
   }
@@ -330,8 +448,9 @@ function placeShipAttempt(cell) {
     }
   }
 }
-// Check if ship can be placed
+// Check if ship can be placed (no overlap, in bounds, no adjacent ships)
 function canPlaceShip(startX, startY, size, orient) {
+  // Check bounds and overlap
   for (let i = 0; i < size; i++) {
     const x = orient === "horizontal" ? startX + i : startX;
     const y = orient === "horizontal" ? startY : startY + i;
@@ -339,15 +458,37 @@ function canPlaceShip(startX, startY, size, orient) {
       return false;
     }
   }
+  // Check no adjacent ships (including diagonally)
+  if (hasAdjacentShip(startX, startY, size, orient)) {
+    return false;
+  }
   return true;
+}
+// Check for adjacent ships
+function hasAdjacentShip(startX, startY, size, orient) {
+  const dirs = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
+  for (let i = 0; i < size; i++) {
+    const cx = orient === "horizontal" ? startX + i : startX;
+    const cy = orient === "horizontal" ? startY : startY + i;
+    for (let [dx, dy] of dirs) {
+      const nx = cx + dx;
+      const ny = cy + dy;
+      if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && myBoard[ny][nx].hasShip) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 // Place the ship
 function placeShip(startX, startY, size, orient) {
+  currentShip.positions = [];
   for (let i = 0; i < size; i++) {
     const x = orient === "horizontal" ? startX + i : startX;
     const y = orient === "horizontal" ? startY : startY + i;
     myBoard[y][x].hasShip = true;
     myBoard[y][x].el.classList.add("ship");
+    currentShip.positions.push({ x, y });
   }
 }
 // Highlight cells for preview
@@ -376,7 +517,10 @@ function allShipsPlaced() {
 // Reset ship placement
 resetBtn.addEventListener("click", () => {
   myBoard = createBoard(myBoardEl, true);
-  shipsToPlace.forEach(ship => ship.placed = false);
+  shipsToPlace.forEach(ship => {
+    ship.placed = false;
+    ship.positions = [];
+  });
   selectNextShip();
   readyBtn.style.display = "none";
   resetBtn.style.display = "none";
@@ -386,695 +530,139 @@ myBoard = createBoard(myBoardEl, true);
 opponentBoard = createBoard(opponentBoardEl, false);
 selectNextShip();
 readyBtn.style.display = "none";
-// Your Metered iceServers array with credentials
-const iceServers = [
-  {
-    urls: "stun:stun.relay.metered.ca:80",
-  },
-  {
-    urls: "turn:global.relay.metered.ca:80",
-    username: "4a2277c3086875e0dd39eec5",
-    credential: "vzFuqmL2yuT2t5N5",
-  },
-  {
-    urls: "turn:global.relay.metered.ca:80?transport=tcp",
-    username: "4a2277c3086875e0dd39eec5",
-    credential: "vzFuqmL2yuT2t5N5",
-  },
-  {
-    urls: "turn:global.relay.metered.ca:443",
-    username: "4a2277c3086875e0dd39eec5",
-    credential: "vzFuqmL2yuT2t5N5",
-  },
-  {
-    urls: "turns:global.relay.metered.ca:443?transport=tcp",
-    username: "4a2277c3086875e0dd39eec5",
-    credential: "vzFuqmL2yuT2t5N5",
-  },
+// Create targets list
+const targetsEl = document.createElement("div");
+targetsEl.id = "targets";
+targetsEl.style.width = "80px";
+const shipSizes = [
+  { size: 4, count: 1 },
+  { size: 3, count: 2 },
+  { size: 2, count: 3 },
+  { size: 1, count: 4 }
 ];
-const config = {
-  appId: 'battleship-p2p-game', // Unique app ID to avoid collisions
-  rtcConfig: { iceServers }
-};
-let room = null;
-let sendReady, getReady, sendMove, getMove, sendResult, getResult;
-// Generate Room ID button logic (added)
-const generateBtn = document.getElementById("generate-room");
-const controlsDiv = document.querySelector('main > div:first-child'); // The div with input/buttons
-generateBtn.addEventListener("click", () => {
-  const roomId = crypto.randomUUID();
-  opponentInput.value = roomId;
-  statusEl.textContent = "Room ID generated! Share it with your opponent.";
-  // Create shareable link and append to controls
-  const shareP = document.createElement('p');
-  shareP.innerHTML = `Share this link: <a href="${window.location.origin}${window.location.pathname}?room=${roomId}">Join Game</a>`;
-  controlsDiv.appendChild(shareP);
-});
-// Connect (Join Room) button
-connectBtn.addEventListener("click", () => {
-  const roomId = opponentInput.value.trim();
-  if (!roomId) {
-    statusEl.textContent = "Status: Enter or generate a Room ID first.";
-    return;
-  }
-  statusEl.textContent = "Status: Joining room...";
-  console.log('Joining room:', roomId);
-  room = joinRoom(config, roomId);
-  // Setup actions for data exchange
-  [sendReady, getReady] = room.makeAction('ready');
-  [sendMove, getMove] = room.makeAction('move');
-  [sendResult, getResult] = room.makeAction('result');
-  // Listen for opponent joining (for status update)
-  room.onPeerJoin(peerId => {
-    console.log('Opponent joined:', peerId);
-    statusEl.textContent = "Status: Connected. Place ships...";
-    if (ready) {
-      sendReady({ type: "ready" });
+shipSizes.forEach(group => {
+  for (let i = 0; i < group.count; i++) {
+    const rep = document.createElement("div");
+    rep.classList.add("ship-rep");
+    rep.dataset.size = group.size;
+    for (let j = 0; j < group.size; j++) {
+      const mini = document.createElement("div");
+      mini.classList.add("mini-cell");
+      rep.appendChild(mini);
     }
-  });
-  // Handle incoming data
-  getReady((data, peerId) => {
-    console.log('Received ready from:', peerId);
-    opponentReady = true;
-    statusEl.textContent = "Status: Opponent is ready!";
-    if (ready) startGame();
-  });
-  getMove((data, peerId) => {
-    console.log('Received move:', data);
-    if (!gameStarted) return;
-    handleMove(data.x, data.y);
-  });
-  getResult((data, peerId) => {
-    console.log('Received result:', data);
-    if (!gameStarted) return;
-    handleResult(data);
-  });
-  // Handle disconnects
-  room.onPeerLeave(peerId => {
-    statusEl.textContent = "Status: Opponent disconnected.";
-    console.log('Opponent left:', peerId);
-    gameStarted = false;
-  });
-  // Set my ID (Trystero's selfId)
-  myIdEl.textContent = selfId;
+    targetsEl.appendChild(rep);
+  }
 });
-// Ready button
-readyBtn.addEventListener("click", () => {
-  if (!allShipsPlaced()) return;
-  ready = true;
-  readyBtn.disabled = true;
-  if (room) {
-    console.log('Sending ready');
-    sendReady({ type: "ready" });
-    statusEl.textContent = "Status: You are ready! Waiting for opponent...";
-  } else {
-    statusEl.textContent = "Status: Join a room first.";
-    ready = false;
-    readyBtn.disabled = false;
-    return;
-  }
-  if (opponentReady) startGame();
-});
-function startGame() {
-  gameStarted = true;
-  orientationBtn.style.display = "none";
-  resetBtn.style.display = "none";
-  statusEl.textContent = "Status: Game started!";
-  // Dynamically get opponent ID
-  const peers = Object.keys(room.getPeers());
-  if (peers.length !== 1) {
-    statusEl.textContent = "Status: Error - Must be exactly 2 players.";
-    console.error('Unexpected number of peers:', peers.length);
-    gameStarted = false;
-    return;
-  }
-  const opponentId = peers[0];
-  if (selfId === opponentId) {
-    statusEl.textContent = "Status: Error - Duplicate peer ID detected. This usually happens when testing both players in the same browser (peer IDs are persisted in localStorage). Try using different browsers, incognito mode for one player, or clearing localStorage.";
-    gameStarted = false;
-    return;
-  }
-  // Decide who starts: lexicographic by selfId and opponentId
-  if (selfId < opponentId) {
-    myTurn = true;
-    statusEl.textContent = "Status: Your turn!";
-  } else {
-    myTurn = false;
-    statusEl.textContent = "Status: Opponent's turn...";
-  }
-  // Remove placement listeners from my board
-  myBoard.flat().forEach(cell => {
-    cell.el.removeEventListener("click", placeShipAttempt);
-    cell.el.removeEventListener("mouseover", previewShip);
-    cell.el.removeEventListener("mouseout", clearPreview);
-  });
-}
-function handleMove(x, y) {
-  if (!gameStarted) return;
-  const cell = myBoard[y][x];
-  let hit = false;
-  if (cell.hasShip && !cell.hit) {
-    cell.hit = true;
-    cell.el.classList.add("hit");
-    hit = true;
-    opponentHits++;
-    if (opponentHits === totalShipCells) {
-      statusEl.textContent = "Status: You lost!";
-      gameStarted = false;
-    }
-  } else {
-    cell.el.classList.add("miss");
-  }
-  console.log('Sending result:', { type: "result", x, y, hit });
-  sendResult({ type: "result", x, y, hit });
-  if (!hit) {
-    myTurn = true;
-    statusEl.textContent = "Status: Your turn!";
-  } else if (opponentHits < totalShipCells) {
-    statusEl.textContent = "Status: Opponent's turn..."; // Opponent hit, so they continue (only if not game over)
-  }
-}
-function handleResult(data) {
-  if (!gameStarted) return;
-  const cell = opponentBoard[data.y][data.x].el; // Note: opponentBoard uses .el
-  if (data.hit) {
-    cell.classList.add("hit");
-    myHits++;
-    if (myHits === totalShipCells) {
-      statusEl.textContent = "Status: You win!";
-      gameStarted = false;
-      return;
-    }
-    myTurn = true;
-    statusEl.textContent = "Status: Your turn!"; // Hit, continue
-  } else {
-    cell.classList.add("miss");
-    myTurn = false;
-    statusEl.textContent = "Status: Opponent's turn..."; // Miss, opponent's turn
-  }
-}
-
-
-
-=== ./public/index.html ===
-<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta name="generator" content="Hugo 0.149.0"><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
-  <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Welcome to Battleship PeerJS Game</title>
-<link rel="stylesheet" href="/css/battleship.css">
-
-</head>
-<body>
-  <header>
-    <h1>Battleship Game</h1>
-  </header>
-  <main>
-
-<h1 id="battleship-online">Battleship Online</h1>
-<p>Play the classic Battleship game <strong>directly in your browser</strong>, peer-to-peer with your friends.</p>
-<p><a class="play-button" href="/battleship/">▶ Play Now</a></p>
-
-
-  </main>
-  <footer>
-    <p style="text-align:center; margin-top:2em;">&copy; 2025 Battleship PeerJS Game</p>
-
-  </footer>
-</body>
-</html>
-
-
-
-=== ./public/sitemap.xml ===
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-  xmlns:xhtml="http://www.w3.org/1999/xhtml">
-  <url>
-    <loc>//localhost:1313/battleship/</loc>
-  </url><url>
-    <loc>//localhost:1313/categories/</loc>
-  </url><url>
-    <loc>//localhost:1313/tags/</loc>
-  </url><url>
-    <loc>//localhost:1313/</loc>
-  </url>
-</urlset>
-
-
-
-=== ./public/index.xml ===
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-  <channel>
-    <title>Welcome to Battleship PeerJS Game on Battleship Game</title>
-    <link>//localhost:1313/</link>
-    <description>Recent content in Welcome to Battleship PeerJS Game on Battleship Game</description>
-    <generator>Hugo</generator>
-    <language>en-us</language>
-    <atom:link href="//localhost:1313/index.xml" rel="self" type="application/rss+xml" />
-    <item>
-      <title>Battleship</title>
-      <link>//localhost:1313/battleship/</link>
-      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      <guid>//localhost:1313/battleship/</guid>
-      <description></description>
-    </item>
-  </channel>
-</rss>
-
-
-
-=== ./public/tags/index.xml ===
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-  <channel>
-    <title>Tags on Battleship Game</title>
-    <link>//localhost:1313/tags/</link>
-    <description>Recent content in Tags on Battleship Game</description>
-    <generator>Hugo</generator>
-    <language>en-us</language>
-    <atom:link href="//localhost:1313/tags/index.xml" rel="self" type="application/rss+xml" />
-  </channel>
-</rss>
-
-
-
-=== ./public/categories/index.xml ===
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-  <channel>
-    <title>Categories on Battleship Game</title>
-    <link>//localhost:1313/categories/</link>
-    <description>Recent content in Categories on Battleship Game</description>
-    <generator>Hugo</generator>
-    <language>en-us</language>
-    <atom:link href="//localhost:1313/categories/index.xml" rel="self" type="application/rss+xml" />
-  </channel>
-</rss>
-
-
-
-=== ./public/battleship/index.html ===
-<!DOCTYPE html>
-<html lang="en">
-<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
-  <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Battleship</title>
-<link rel="stylesheet" href="/css/battleship.css">
-
-</head>
-<body>
-  <header>
-    <h1>Battleship Game</h1>
-  </header>
-  <main>
-
-<div>
-  <strong>Your ID:</strong> <span id="my-id">waiting...</span><br>
-  <input type="text" id="opponent-id" placeholder="Room ID">
-  <button id="generate-room">Generate Room ID</button>
-  <button id="connect-btn">Join Room</button>
-</div>
-
-<div id="status">Status: Waiting...</div>
-
-<button id="ready-btn">I'm Ready</button>
-
-<div id="boards">
-  <div>
-    <h3>Your Board</h3>
-    <div id="my-board" class="board"></div>
-  </div>
-  <div>
-    <h3>Opponent's Board</h3>
-    <div id="opponent-board" class="board"></div>
-  </div>
-</div>
-
-<script type="module" src="/js/battleship.js"></script>
-
-  </main>
-  <footer>
-    <p style="text-align:center; margin-top:2em;">&copy; 2025 Battleship PeerJS Game</p>
-
-  </footer>
-</body>
-</html>
-
-
-
-=== ./public/css/battleship.css ===
-/* General */
-body {
-  font-family: "Segoe UI", Roboto, sans-serif;
-  background: linear-gradient(180deg, #0b1a2a, #091422);
-  color: #f1f1f1;
-  margin: 0;
-  padding: 0;
+// Wrap boards in containers
+const myContainer = myBoardEl.parentNode;
+const opponentContainer = opponentBoardEl.parentNode;
+const myBoardContainer = document.createElement("div");
+myBoardContainer.classList.add("board-container");
+myContainer.insertBefore(myBoardContainer, myBoardEl);
+myBoardContainer.appendChild(myBoardEl);
+const opponentBoardContainer = document.createElement("div");
+opponentBoardContainer.classList.add("board-container");
+opponentContainer.insertBefore(opponentBoardContainer, opponentBoardEl);
+opponentBoardContainer.appendChild(opponentBoardEl);
+opponentBoardContainer.appendChild(targetsEl);
+// Add padding to my board for balance
+const padding = document.createElement("div");
+padding.classList.add("targets-padding");
+padding.style.width = "120px";
+padding.style.flexShrink = "0";
+myBoardContainer.insertBefore(padding, myBoardEl);
+// Add styles
+const style = document.createElement("style");
+style.textContent = `
+.board-container {
   display: flex;
-  flex-direction: column;
-  min-height: 100vh;
+  align-items: flex-start;
 }
-
-header, footer {
-  text-align: center;
-  padding: 1rem;
-  background: #0e2238;
-  color: #fff;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+@media (max-width: 768px) {
+  .board-container {
+    flex-direction: column;
+    align-items: center;
+  }
 }
-
-main {
-  flex: 1;
-  padding: 1rem;
+.ship-rep {
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  margin-bottom: 10px;
 }
-
-/* Landing page */
-.landing h1 {
-  font-size: 3rem;
-  margin: 1rem 0;
-  color: #00bfff;
-}
-
-.landing p {
-  font-size: 1.3rem;
-  max-width: 600px;
-  text-align: center;
-  margin: 0.5rem 0;
-  color: #a0c4ff;
-}
-
-a.play-button {
-  display: inline-block;
-  margin-top: 2rem;
-  font-size: 1.5rem;
-  padding: 0.75rem 2rem;
-  color: #fff;
-  background-color: #2563eb;
-  text-decoration: none;
-  border-radius: 12px;
-  box-shadow: 0 0 8px rgba(37,99,235,0.6);
-  transition: background-color 0.3s, transform 0.2s;
-}
-
-a.play-button:hover {
-  background-color: #1e4fb8;
-  transform: scale(1.05);
-}
-
-/* Status + Controls */
-#status {
-  margin: 1rem 0;
-  font-weight: bold;
-  text-align: center;
-  font-size: 1.2rem;
-  color: #66d9ef;
-}
-
-input, button {
-  font-size: 1rem;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  border: none;
-  margin: 0.3rem;
-}
-
-input {
-  background: #1b2d44;
-  color: #f1f1f1;
-  border: 1px solid #2a3e5c;
-}
-
-button {
-  background: #2563eb;
-  color: white;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-button:hover {
-  background: #1e4fb8;
-}
-
-/* Boards */
-#boards {
-  display: flex;
-  gap: 2rem;
-  margin-top: 1rem;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.board {
-  display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  grid-template-rows: repeat(10, 1fr);
-  gap: 2px;
-  width: 300px;
-  max-width: 90vw;
-  aspect-ratio: 1 / 1;
-  background: #0e2238;
-  border: 2px solid #4a90e2;
-  border-radius: 8px;
-  box-shadow: 0 0 10px rgba(74,144,226,0.6);
-}
-
-.cell {
-  background: #142d46;
+.mini-cell {
+  width: 20px;
+  height: 20px;
+  background: lightblue;
   border: 1px solid #1f3a5f;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
+  box-sizing: border-box;
   transition: background 0.15s;
 }
-
-.cell:hover {
-  background: #1f3a5f;
-}
-
-/* States */
-.ship {
-  background: lightblue;
-}
-
-.hit {
-  background: #dc2626 !important;
+.ship-rep.sunk .mini-cell {
+  background: #dc2626;
   box-shadow: inset 0 0 6px #f87171;
 }
-
-.miss {
-  background: #3b82f6 !important;
-  box-shadow: inset 0 0 6px #60a5fa;
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
 }
-
-.preview {
-  background: rgba(255,255,255,0.3) !important;
-}
-
-/* Responsive */
 @media (max-width: 768px) {
-  #boards {
+  .controls {
     flex-direction: column;
-    gap: 1rem;
+    align-items: center;
   }
-
-  .board {
-    width: 90vw;
-  }
-
-  .landing h1 {
-    font-size: 2.2rem;
-  }
-
-  .landing p {
-    font-size: 1.1rem;
-    padding: 0 1rem;
-  }
-
-  a.play-button {
-    font-size: 1.2rem;
-    padding: 0.5rem 1.5rem;
+  .controls button, .controls input {
+    width: 80%;
+    margin: 0.3rem 0;
   }
 }
-
-
-
-=== ./public/js/battleship.js ===
-import {joinRoom, selfId} from 'https://esm.run/trystero/torrent';
-const myBoardEl = document.getElementById("my-board");
-const opponentBoardEl = document.getElementById("opponent-board");
-const statusEl = document.getElementById("status");
-const myIdEl = document.getElementById("my-id");
-const connectBtn = document.getElementById("connect-btn");
-const readyBtn = document.getElementById("ready-btn");
-const opponentInput = document.getElementById("opponent-id");
-const resetBtn = document.createElement("button"); // New reset button for ship placement
-resetBtn.textContent = "Reset Ships";
-resetBtn.style.display = "none";
-const orientationBtn = document.createElement("button");
-orientationBtn.textContent = "Toggle Orientation (Horizontal)";
-orientationBtn.addEventListener("click", () => {
-  orientation = orientation === "horizontal" ? "vertical" : "horizontal";
-  orientationBtn.textContent = `Toggle Orientation (${orientation.charAt(0).toUpperCase() + orientation.slice(1)})`;
-});
-// Insert buttons after readyBtn (before boards for better visibility)
-readyBtn.parentNode.insertBefore(orientationBtn, readyBtn.nextSibling);
-readyBtn.parentNode.insertBefore(resetBtn, orientationBtn.nextSibling);
-let myTurn = false;
-let myBoard = [];
-let opponentBoard = [];
-let shipsToPlace = [
-  { name: "Carrier", size: 5, placed: false },
-  { name: "Battleship", size: 4, placed: false },
-  { name: "Cruiser", size: 3, placed: false },
-  { name: "Submarine", size: 3, placed: false },
-  { name: "Destroyer", size: 2, placed: false }
-];
-let currentShip = null;
-let orientation = "horizontal"; // Default orientation
-let ready = false;
-let opponentReady = false;
-let gameStarted = false;
-let myHits = 0;
-let opponentHits = 0;
-const totalShipCells = 17; // 5+4+3+3+2
-// Auto-fill and join if ?room=xxx in URL (for shareable links)
-const urlParams = new URLSearchParams(window.location.search);
-const roomParam = urlParams.get('room');
-if (roomParam) {
-  opponentInput.value = roomParam;
-  connectBtn.click(); // Auto-join
+.share-btn {
+  padding: 10px 20px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s;
 }
-// Create 10x10 grids
-function createBoard(el, isMyBoard) {
-  const grid = [];
-  el.innerHTML = ""; // Clear existing cells
-  for (let y = 0; y < 10; y++) {
-    const row = [];
-    for (let x = 0; x < 10; x++) {
-      const cell = document.createElement("div");
-      cell.classList.add("cell");
-      cell.dataset.x = x;
-      cell.dataset.y = y;
-      if (isMyBoard) {
-        cell.addEventListener("click", (e) => placeShipAttempt(e.target));
-        cell.addEventListener("mouseover", (e) => previewShip(e.target));
-        cell.addEventListener("mouseout", clearPreview);
-      } else {
-        cell.addEventListener("click", () => {
-          if (myTurn && gameStarted && room && !cell.classList.contains("hit") && !cell.classList.contains("miss")) {
-            sendMove({ type: "move", x, y });
-            myTurn = false;
-            statusEl.textContent = "Status: Waiting for opponent...";
-          }
-        });
-      }
-      el.appendChild(cell);
-      row.push({ hasShip: false, hit: false, el: cell });
-    }
-    grid.push(row);
-  }
-  return grid;
+.share-btn:hover {
+  background-color: #45a049;
 }
-// Preview ship placement
-function previewShip(cell) {
-  if (!currentShip || gameStarted) return;
-  const x = parseInt(cell.dataset.x);
-  const y = parseInt(cell.dataset.y);
-  clearPreview();
-  if (canPlaceShip(x, y, currentShip.size, orientation)) {
-    highlightCells(x, y, currentShip.size, orientation, "preview");
-  }
+.share-btn.copied {
+  background-color: #2196F3;
+  text-content: "Copied!";
 }
-// Clear preview highlights
-function clearPreview() {
-  document.querySelectorAll(".preview").forEach(el => el.classList.remove("preview"));
+.mute-btn {
+  padding: 8px 16px;
+  background-color: #f44336;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
 }
-// Attempt to place ship on click
-function placeShipAttempt(cell) {
-  if (!currentShip || gameStarted) return;
-  const x = parseInt(cell.dataset.x);
-  const y = parseInt(cell.dataset.y);
-  if (canPlaceShip(x, y, currentShip.size, orientation)) {
-    placeShip(x, y, currentShip.size, orientation);
-    currentShip.placed = true;
-    selectNextShip();
-    if (allShipsPlaced()) {
-      readyBtn.style.display = "block";
-      resetBtn.style.display = "block";
-      statusEl.textContent = "All ships placed! Click 'I'm Ready' when ready.";
-    }
-  }
+.mute-btn:hover {
+  background-color: #d32f2f;
 }
-// Check if ship can be placed
-function canPlaceShip(startX, startY, size, orient) {
-  for (let i = 0; i < size; i++) {
-    const x = orient === "horizontal" ? startX + i : startX;
-    const y = orient === "horizontal" ? startY : startY + i;
-    if (x >= 10 || y >= 10 || myBoard[y][x].hasShip) {
-      return false;
-    }
-  }
-  return true;
+.mute-btn.muted {
+  background-color: #4CAF50;
 }
-// Place the ship
-function placeShip(startX, startY, size, orient) {
-  for (let i = 0; i < size; i++) {
-    const x = orient === "horizontal" ? startX + i : startX;
-    const y = orient === "horizontal" ? startY : startY + i;
-    myBoard[y][x].hasShip = true;
-    myBoard[y][x].el.classList.add("ship");
-  }
+.mute-btn.muted:hover {
+  background-color: #45a049;
 }
-// Highlight cells for preview
-function highlightCells(startX, startY, size, orient, className) {
-  for (let i = 0; i < size; i++) {
-    const x = orient === "horizontal" ? startX + i : startX;
-    const y = orient === "horizontal" ? startY : startY + i;
-    if (x < 10 && y < 10) {
-      myBoard[y][x].el.classList.add(className);
-    }
-  }
-}
-// Select next unplaced ship
-function selectNextShip() {
-  currentShip = shipsToPlace.find(ship => !ship.placed);
-  if (currentShip) {
-    statusEl.textContent = `Place ${currentShip.name} (${currentShip.size} cells)`;
-  } else {
-    statusEl.textContent = "All ships placed!";
-  }
-}
-// Check if all ships are placed
-function allShipsPlaced() {
-  return shipsToPlace.every(ship => ship.placed);
-}
-// Reset ship placement
-resetBtn.addEventListener("click", () => {
-  myBoard = createBoard(myBoardEl, true);
-  shipsToPlace.forEach(ship => ship.placed = false);
-  selectNextShip();
-  readyBtn.style.display = "none";
-  resetBtn.style.display = "none";
-});
-// Initialize boards
-myBoard = createBoard(myBoardEl, true);
-opponentBoard = createBoard(opponentBoardEl, false);
-selectNextShip();
-readyBtn.style.display = "none";
-// Your Metered iceServers array with credentials
+`;
+document.head.appendChild(style);
+// Your Metered iceServers array with credentials, expanded with more STUN servers
 const iceServers = [
-  {
-    urls: "stun:stun.relay.metered.ca:80",
-  },
+  { urls: 'stun:stun.relay.metered.ca:80' },
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun3.l.google.com:19302' },
+  { urls: 'stun:stun4.l.google.com:19302' },
+  { urls: 'stun:global.stun.twilio.com:3478' },
   {
     urls: "turn:global.relay.metered.ca:80",
     username: "4a2277c3086875e0dd39eec5",
@@ -1098,21 +686,63 @@ const iceServers = [
 ];
 const config = {
   appId: 'battleship-p2p-game', // Unique app ID to avoid collisions
+  trackerUrls: [
+    'wss://tracker.btorrent.xyz',
+    'wss://tracker.openwebtorrent.com',
+    'wss://tracker.webtorrent.dev',
+    'wss://tracker.fastcast.nz',
+    'wss://tracker.sloppyta.co:443/announce',
+    'wss://tracker.novage.com.ua:443/announce'
+  ],
   rtcConfig: { iceServers }
 };
 let room = null;
-let sendReady, getReady, sendMove, getMove, sendResult, getResult;
+let sendReady, getReady, sendMove, getMove, sendResult, getResult, sendRematch, getRematch;
 // Generate Room ID button logic (added)
 const generateBtn = document.getElementById("generate-room");
 const controlsDiv = document.querySelector('main > div:first-child'); // The div with input/buttons
+controlsDiv.classList.add('controls');
 generateBtn.addEventListener("click", () => {
   const roomId = crypto.randomUUID();
   opponentInput.value = roomId;
-  statusEl.textContent = "Room ID generated! Share it with your opponent.";
-  // Create shareable link and append to controls
-  const shareP = document.createElement('p');
-  shareP.innerHTML = `Share this link: <a href="${window.location.origin}${window.location.pathname}?room=${roomId}">Join Game</a>`;
-  controlsDiv.appendChild(shareP);
+  connectBtn.click(); // Auto-join the generated room
+  // Remove existing share button if any
+  const existingShareBtn = document.getElementById('share-game-btn');
+  if (existingShareBtn) {
+    existingShareBtn.remove();
+  }
+  // Create styled share button
+  const shareBtn = document.createElement('button');
+  shareBtn.id = 'share-game-btn';
+  shareBtn.textContent = 'Share Game Link';
+  shareBtn.classList.add('share-btn');
+  const link = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
+  shareBtn.addEventListener('click', async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Join my Battleship Game!',
+          text: 'Click to join the game:',
+          url: link
+        });
+      } catch (err) {
+        console.error('Share failed:', err);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(link);
+        shareBtn.textContent = 'Copied!';
+        shareBtn.classList.add('copied');
+        setTimeout(() => {
+          shareBtn.textContent = 'Share Game Link';
+          shareBtn.classList.remove('copied');
+        }, 2000);
+      } catch (err) {
+        console.error('Copy failed:', err);
+      }
+    }
+  });
+  controlsDiv.appendChild(shareBtn);
 });
 // Connect (Join Room) button
 connectBtn.addEventListener("click", () => {
@@ -1123,11 +753,15 @@ connectBtn.addEventListener("click", () => {
   }
   statusEl.textContent = "Status: Joining room...";
   console.log('Joining room:', roomId);
+  if (room) {
+    room.leave();
+  }
   room = joinRoom(config, roomId);
   // Setup actions for data exchange
   [sendReady, getReady] = room.makeAction('ready');
   [sendMove, getMove] = room.makeAction('move');
   [sendResult, getResult] = room.makeAction('result');
+  [sendRematch, getRematch] = room.makeAction('rematch');
   // Listen for opponent joining (for status update)
   room.onPeerJoin(peerId => {
     console.log('Opponent joined:', peerId);
@@ -1152,6 +786,12 @@ connectBtn.addEventListener("click", () => {
     console.log('Received result:', data);
     if (!gameStarted) return;
     handleResult(data);
+  });
+  getRematch((data, peerId) => {
+    console.log('Received rematch request from:', peerId);
+    opponentRematchReady = true;
+    statusEl.textContent = "Opponent wants a rematch!";
+    if (rematchReady) resetGame();
   });
   // Handle disconnects
   room.onPeerLeave(peerId => {
@@ -1179,10 +819,44 @@ readyBtn.addEventListener("click", () => {
   }
   if (opponentReady) startGame();
 });
+// Rematch button
+rematchBtn.addEventListener("click", () => {
+  rematchReady = true;
+  rematchBtn.disabled = true;
+  if (room) {
+    console.log('Sending rematch');
+    sendRematch({ type: "rematch" });
+    statusEl.textContent = "Waiting for opponent to accept rematch...";
+  } else {
+    statusEl.textContent = "Status: Join a room first.";
+    rematchReady = false;
+    rematchBtn.disabled = false;
+    return;
+  }
+  if (opponentRematchReady) resetGame();
+});
+// Auto-fill and join if ?room=xxx in URL (for shareable links) -- moved to end after event listeners
+const urlParams = new URLSearchParams(window.location.search);
+const roomParam = urlParams.get('room');
+if (roomParam) {
+  opponentInput.value = roomParam;
+  connectBtn.click(); // Auto-join
+}
+// Create mute button
+const muteBtn = document.createElement("button");
+muteBtn.textContent = "Mute Sounds";
+muteBtn.classList.add("mute-btn");
+muteBtn.addEventListener("click", () => {
+  isMuted = !isMuted;
+  muteBtn.textContent = isMuted ? "Unmute Sounds" : "Mute Sounds";
+  muteBtn.classList.toggle("muted", isMuted);
+});
+controlsDiv.appendChild(muteBtn);
 function startGame() {
   gameStarted = true;
   orientationBtn.style.display = "none";
   resetBtn.style.display = "none";
+  rematchBtn.style.display = "none";
   statusEl.textContent = "Status: Game started!";
   // Dynamically get opponent ID
   const peers = Object.keys(room.getPeers());
@@ -1213,24 +887,192 @@ function startGame() {
     cell.el.removeEventListener("mouseout", clearPreview);
   });
 }
+function resetGame() {
+  myBoard = createBoard(myBoardEl, true);
+  opponentBoard = createBoard(opponentBoardEl, false);
+  shipsToPlace.forEach(ship => {
+    ship.placed = false;
+    ship.positions = [];
+  });
+  selectNextShip();
+  myHits = 0;
+  opponentHits = 0;
+  ready = false;
+  opponentReady = false;
+  rematchReady = false;
+  opponentRematchReady = false;
+  gameStarted = false;
+  readyBtn.style.display = "none";
+  rematchBtn.style.display = "none";
+  rematchBtn.disabled = false;
+  readyBtn.disabled = false;
+  orientationBtn.style.display = "block";
+  resetBtn.style.display = "none";
+  statusEl.textContent = "Place your ships for the next game.";
+  // Re-add placement listeners to my board
+  myBoard.flat().forEach(cell => {
+    cell.el.addEventListener("click", placeShipAttempt);
+    cell.el.addEventListener("mouseover", previewShip);
+    cell.el.addEventListener("mouseout", clearPreview);
+  });
+  // Reset target list
+  document.querySelectorAll('.ship-rep.sunk').forEach(el => el.classList.remove('sunk'));
+}
 function handleMove(x, y) {
   if (!gameStarted) return;
   const cell = myBoard[y][x];
+  if (cell.attacked) return; // Should not happen
+  cell.attacked = true;
   let hit = false;
-  if (cell.hasShip && !cell.hit) {
+  let surrounds = [];
+  let sunkSize = undefined;
+  if (cell.hasShip) {
     cell.hit = true;
     cell.el.classList.add("hit");
     hit = true;
     opponentHits++;
+    if (!isMuted) hitSound.play().catch(() => {});
+    if ('vibrate' in navigator) {
+      navigator.vibrate(200);
+    }
+    const hitPos = { x, y };
+    const sunkShip = shipsToPlace.find(ship => ship.positions.some(p => p.x === hitPos.x && p.y === hitPos.y));
+    if (sunkShip) {
+      const hitPositions = sunkShip.positions.filter(p => myBoard[p.y][p.x].hit);
+      const hitCount = hitPositions.length;
+      const isSunk = hitCount === sunkShip.size;
+      if (isSunk) {
+        sunkSize = sunkShip.size;
+      }
+      const surroundSet = new Set();
+      const dirs = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
+      const diagDirs = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+      if (isSunk) {
+        // Mark all around the entire ship
+        sunkShip.positions.forEach(pos => {
+          dirs.forEach(([dx, dy]) => {
+            const nx = pos.x + dx;
+            const ny = pos.y + dy;
+            if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && !myBoard[ny][nx].attacked) {
+              surroundSet.add(`${nx},${ny}`);
+            }
+          });
+        });
+      } else {
+        // Not sunk, determine direction from hit positions
+        const isHorizontal = hitPositions.every(p => p.y === hitPositions[0].y);
+        const isVertical = hitPositions.every(p => p.x === hitPositions[0].x);
+        let clusters = [];
+        if (isHorizontal) {
+          const y = hitPositions[0].y;
+          const hitXs = hitPositions.map(p => p.x).sort((a, b) => a - b);
+          let currentCluster = [hitXs[0]];
+          for (let i = 1; i < hitXs.length; i++) {
+            if (hitXs[i] === hitXs[i - 1] + 1) {
+              currentCluster.push(hitXs[i]);
+            } else {
+              clusters.push(currentCluster);
+              currentCluster = [hitXs[i]];
+            }
+          }
+          clusters.push(currentCluster);
+          clusters.forEach(cluster => {
+            const clusterSize = cluster.length;
+            const minX = cluster[0];
+            const maxX = cluster[cluster.length - 1];
+            if (clusterSize === 1) {
+              // Mark only 4 diagonals
+              diagDirs.forEach(([dx, dy]) => {
+                const nx = minX + dx;
+                const ny = y + dy;
+                if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && !myBoard[ny][nx].attacked) {
+                  surroundSet.add(`${nx},${ny}`);
+                }
+              });
+            } else {
+              // Mark all adjacent except the two extensions
+              const extSet = new Set();
+              const ext1 = minX - 1;
+              if (ext1 >= 0) extSet.add(`${ext1},${y}`);
+              const ext2 = maxX + 1;
+              if (ext2 < 10) extSet.add(`${ext2},${y}`);
+              for (let cx = minX; cx <= maxX; cx++) {
+                dirs.forEach(([dx, dy]) => {
+                  const nx = cx + dx;
+                  const ny = y + dy;
+                  if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && !myBoard[ny][nx].attacked && !extSet.has(`${nx},${ny}`)) {
+                    surroundSet.add(`${nx},${ny}`);
+                  }
+                });
+              }
+            }
+          });
+        } else if (isVertical) {
+          const x = hitPositions[0].x;
+          const hitYs = hitPositions.map(p => p.y).sort((a, b) => a - b);
+          let currentCluster = [hitYs[0]];
+          for (let i = 1; i < hitYs.length; i++) {
+            if (hitYs[i] === hitYs[i - 1] + 1) {
+              currentCluster.push(hitYs[i]);
+            } else {
+              clusters.push(currentCluster);
+              currentCluster = [hitYs[i]];
+            }
+          }
+          clusters.push(currentCluster);
+          clusters.forEach(cluster => {
+            const clusterSize = cluster.length;
+            const minY = cluster[0];
+            const maxY = cluster[cluster.length - 1];
+            if (clusterSize === 1) {
+              // Mark only 4 diagonals
+              diagDirs.forEach(([dx, dy]) => {
+                const nx = x + dx;
+                const ny = minY + dy;
+                if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && !myBoard[ny][nx].attacked) {
+                  surroundSet.add(`${nx},${ny}`);
+                }
+              });
+            } else {
+              // Mark all adjacent except the two extensions
+              const extSet = new Set();
+              const ext1 = minY - 1;
+              if (ext1 >= 0) extSet.add(`${x},${ext1}`);
+              const ext2 = maxY + 1;
+              if (ext2 < 10) extSet.add(`${x},${ext2}`);
+              for (let cy = minY; cy <= maxY; cy++) {
+                dirs.forEach(([dx, dy]) => {
+                  const nx = x + dx;
+                  const ny = cy + dy;
+                  if (nx >= 0 && nx < 10 && ny >= 0 && ny < 10 && !myBoard[ny][nx].attacked && !extSet.has(`${nx},${ny}`)) {
+                    surroundSet.add(`${nx},${ny}`);
+                  }
+                });
+              }
+            }
+          });
+        }
+      }
+      surrounds = Array.from(surroundSet).map(key => {
+        const [sx, sy] = key.split(',');
+        return { x: parseInt(sx), y: parseInt(sy) };
+      });
+    }
     if (opponentHits === totalShipCells) {
       statusEl.textContent = "Status: You lost!";
+      if (!isMuted) defeatSound.play().catch(() => {});
+      if ('vibrate' in navigator) {
+        navigator.vibrate(500);
+      }
       gameStarted = false;
+      rematchBtn.style.display = "block";
     }
   } else {
     cell.el.classList.add("miss");
   }
-  console.log('Sending result:', { type: "result", x, y, hit });
-  sendResult({ type: "result", x, y, hit });
+  // Send result
+  console.log('Sending result:', { type: "result", x, y, hit, surrounds, sunkSize });
+  sendResult({ type: "result", x, y, hit, surrounds, sunkSize });
   if (!hit) {
     myTurn = true;
     statusEl.textContent = "Status: Your turn!";
@@ -1244,11 +1086,30 @@ function handleResult(data) {
   if (data.hit) {
     cell.classList.add("hit");
     myHits++;
+    if (!isMuted) hitSound.play().catch(() => {});
+    if ('vibrate' in navigator) {
+      navigator.vibrate(200);
+    }
+    if (data.sunkSize) {
+      const shipRep = document.querySelector(`.ship-rep[data-size="${data.sunkSize}"]:not(.sunk)`);
+      if (shipRep) {
+        shipRep.classList.add("sunk");
+      }
+    }
     if (myHits === totalShipCells) {
       statusEl.textContent = "Status: You win!";
+      if (!isMuted) victorySound.play().catch(() => {});
+      if ('vibrate' in navigator) {
+        navigator.vibrate(500);
+      }
       gameStarted = false;
+      rematchBtn.style.display = "block";
       return;
     }
+    data.surrounds.forEach(s => {
+      const sCell = opponentBoard[s.y][s.x].el;
+      sCell.classList.add("deduced-miss");
+    });
     myTurn = true;
     statusEl.textContent = "Status: Your turn!"; // Hit, continue
   } else {
@@ -1282,12 +1143,17 @@ description = "Minimal theme for Battleship PeerJS game"
   {{ partial "head.html" . }}
 </head>
 <body>
-  <header>
-    <h1>{{ .Site.Title }}</h1>
+  <header class="site-header">
+    {{ if not .IsHome }}
+      <a href="{{ "/" | relURL }}" class="back-button">⬅ Back</a>
+    {{ end }}
+    <h1 class="site-title">{{ .Site.Title }}</h1>
   </header>
+
   <main>
     {{ block "main" . }}{{ end }}
   </main>
+
   <footer>
     {{ partial "footer.html" . }}
   </footer>
@@ -1334,4 +1200,6 @@ description = "Minimal theme for Battleship PeerJS game"
 
 
 === ./themes/hugo-battleship-peer/layouts/partials/footer.html ===
-<p style="text-align:center; margin-top:2em;">&copy; 2025 Battleship PeerJS Game</p>
+<p style="text-align:center; margin-top:2em;">&copy; 2025 Battleship</p>
+
+
