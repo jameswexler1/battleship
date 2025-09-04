@@ -216,11 +216,15 @@ myBoard = createBoard(myBoardEl, true);
 opponentBoard = createBoard(opponentBoardEl, false);
 selectNextShip();
 readyBtn.style.display = "none";
-// Your Metered iceServers array with credentials
+// Your Metered iceServers array with credentials, expanded with more STUN servers
 const iceServers = [
-  {
-    urls: "stun:stun.relay.metered.ca:80",
-  },
+  { urls: 'stun:stun.relay.metered.ca:80' },
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun3.l.google.com:19302' },
+  { urls: 'stun:stun4.l.google.com:19302' },
+  { urls: 'stun:global.stun.twilio.com:3478' },
   {
     urls: "turn:global.relay.metered.ca:80",
     username: "4a2277c3086875e0dd39eec5",
@@ -244,6 +248,14 @@ const iceServers = [
 ];
 const config = {
   appId: 'battleship-p2p-game', // Unique app ID to avoid collisions
+  trackerUrls: [
+    'wss://tracker.btorrent.xyz',
+    'wss://tracker.openwebtorrent.com',
+    'wss://tracker.webtorrent.dev',
+    'wss://tracker.fastcast.nz',
+    'wss://tracker.sloppyta.co:443/announce',
+    'wss://tracker.novage.com.ua:443/announce'
+  ],
   rtcConfig: { iceServers }
 };
 let room = null;
