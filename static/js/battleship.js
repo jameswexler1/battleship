@@ -45,6 +45,7 @@ let opponentRematchReady = false;
 let gameStarted = false;
 let myHits = 0;
 let opponentHits = 0;
+let isMuted = false;
 const totalShipCells = 20; // 4 + 3+3 + 2+2+2 + 1+1+1+1
 const hitSound = new Audio('https://therecordist.com/assets/sound/mp3_14/Explosion_Large_Blast_1.mp3');
 const victorySound = new Audio('https://orangefreesounds.com/wp-content/uploads/2023/06/Victory-fanfare-sound-effect.mp3');
@@ -324,6 +325,29 @@ style.textContent = `
   background-color: #2196F3;
   text-content: "Copied!";
 }
+.mute-btn {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  padding: 8px 16px;
+  background-color: #f44336;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  z-index: 1000;
+  transition: background-color 0.3s;
+}
+.mute-btn:hover {
+  background-color: #d32f2f;
+}
+.mute-btn.muted {
+  background-color: #4CAF50;
+}
+.mute-btn.muted:hover {
+  background-color: #45a049;
+}
 `;
 document.head.appendChild(style);
 // Your Metered iceServers array with credentials, expanded with more STUN servers
@@ -514,6 +538,16 @@ if (roomParam) {
   opponentInput.value = roomParam;
   connectBtn.click(); // Auto-join
 }
+// Create mute button
+const muteBtn = document.createElement("button");
+muteBtn.textContent = "Mute Sounds";
+muteBtn.classList.add("mute-btn");
+muteBtn.addEventListener("click", () => {
+  isMuted = !isMuted;
+  muteBtn.textContent = isMuted ? "Unmute Sounds" : "Mute Sounds";
+  muteBtn.classList.toggle("muted", isMuted);
+});
+document.body.appendChild(muteBtn);
 function startGame() {
   gameStarted = true;
   orientationBtn.style.display = "none";
@@ -593,7 +627,7 @@ function handleMove(x, y) {
     cell.el.classList.add("hit");
     hit = true;
     opponentHits++;
-    hitSound.play().catch(() => {});
+    if (!isMuted) hitSound.play().catch(() => {});
     if ('vibrate' in navigator) {
       navigator.vibrate(200);
     }
@@ -722,7 +756,7 @@ function handleMove(x, y) {
     }
     if (opponentHits === totalShipCells) {
       statusEl.textContent = "Status: You lost!";
-      defeatSound.play().catch(() => {});
+      if (!isMuted) defeatSound.play().catch(() => {});
       if ('vibrate' in navigator) {
         navigator.vibrate(500);
       }
@@ -748,7 +782,7 @@ function handleResult(data) {
   if (data.hit) {
     cell.classList.add("hit");
     myHits++;
-    hitSound.play().catch(() => {});
+    if (!isMuted) hitSound.play().catch(() => {});
     if ('vibrate' in navigator) {
       navigator.vibrate(200);
     }
@@ -760,7 +794,7 @@ function handleResult(data) {
     }
     if (myHits === totalShipCells) {
       statusEl.textContent = "Status: You win!";
-      victorySound.play().catch(() => {});
+      if (!isMuted) victorySound.play().catch(() => {});
       if ('vibrate' in navigator) {
         navigator.vibrate(500);
       }
