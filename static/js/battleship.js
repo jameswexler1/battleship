@@ -1,5 +1,4 @@
-import {joinRoom, selfId} from 'https://esm.run/trystero/firebase';
-const myBoardEl = document.getElementById("my-board");
+import {joinRoom, selfId} from 'https://esm.run/trystero/torrent'; const myBoardEl = document.getElementById("my-board");
 const opponentBoardEl = document.getElementById("opponent-board");
 const statusEl = document.getElementById("status");
 const myIdEl = document.getElementById("my-id");
@@ -247,14 +246,15 @@ const iceServers = [
   },
 ];
 const config = {
-  apiKey: "AIzaSyCrb48GgpYRrc-4ZCDv3uSwh5I5f6OjmRI",
-  authDomain: "transferbase-b955d.firebaseapp.com",
-  databaseURL: "https://transferbase-b955d-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "transferbase-b955d",
-  storageBucket: "transferbase-b955d.appspot.com",
-  messagingSenderId: "692979016392",
-  appId: "1:692979016392:web:e5a159bc62a98eedf0fbfd",
-  rootPath: 'battleship-p2p-game', // Namespaces the database to avoid collisions with other apps
+  appId: 'battleship-p2p-game', // Unique app ID to avoid collisions
+  trackerUrls: [
+    'wss://tracker.btorrent.xyz',
+    'wss://tracker.openwebtorrent.com',
+    'wss://tracker.webtorrent.dev',
+    'wss://tracker.fastcast.nz',
+    'wss://tracker.sloppyta.co:443/announce',
+    'wss://tracker.novage.com.ua:443/announce'
+  ],
   rtcConfig: { iceServers }
 };
 let room = null;
