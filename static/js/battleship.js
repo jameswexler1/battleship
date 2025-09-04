@@ -298,6 +298,22 @@ style.textContent = `
   background: #dc2626;
   box-shadow: inset 0 0 6px #f87171;
 }
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+@media (max-width: 768px) {
+  .controls {
+    flex-direction: column;
+    align-items: center;
+  }
+  .controls button, .controls input {
+    width: 80%;
+    margin: 0.3rem 0;
+  }
+}
 `;
 document.head.appendChild(style);
 // Your Metered iceServers array with credentials, expanded with more STUN servers
@@ -347,6 +363,7 @@ let sendReady, getReady, sendMove, getMove, sendResult, getResult, sendRematch, 
 // Generate Room ID button logic (added)
 const generateBtn = document.getElementById("generate-room");
 const controlsDiv = document.querySelector('main > div:first-child'); // The div with input/buttons
+controlsDiv.classList.add('controls');
 generateBtn.addEventListener("click", () => {
   const roomId = crypto.randomUUID();
   opponentInput.value = roomId;
