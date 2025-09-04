@@ -1,5 +1,5 @@
 ---
-title: "Welcome to Battleship PeerJS Game"
+title: "Welcome to Battleship"
 ---
 # Battleship Online
 Play the classic Battleship game **directly in your browser**, peer-to-peer with your friends.
