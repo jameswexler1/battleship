@@ -49,13 +49,6 @@ const totalShipCells = 20; // 4 + 3+3 + 2+2+2 + 1+1+1+1
 const hitSound = new Audio('https://therecordist.com/assets/sound/mp3_14/Explosion_Large_Blast_1.mp3');
 const victorySound = new Audio('https://orangefreesounds.com/wp-content/uploads/2023/06/Victory-fanfare-sound-effect.mp3');
 const defeatSound = new Audio('https://freesound.org/data/previews/183/183077_2374229-lq.mp3');
-// Auto-fill and join if ?room=xxx in URL (for shareable links)
-const urlParams = new URLSearchParams(window.location.search);
-const roomParam = urlParams.get('room');
-if (roomParam) {
-  opponentInput.value = roomParam;
-  connectBtn.click(); // Auto-join
-}
 // Move status between boards on mobile
 function adjustStatusPosition() {
   if (window.innerWidth <= 768) {
@@ -461,6 +454,13 @@ rematchBtn.addEventListener("click", () => {
   }
   if (opponentRematchReady) resetGame();
 });
+// Auto-fill and join if ?room=xxx in URL (for shareable links) -- moved to end after event listeners
+const urlParams = new URLSearchParams(window.location.search);
+const roomParam = urlParams.get('room');
+if (roomParam) {
+  opponentInput.value = roomParam;
+  connectBtn.click(); // Auto-join
+}
 function startGame() {
   gameStarted = true;
   orientationBtn.style.display = "none";
