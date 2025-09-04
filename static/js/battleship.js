@@ -378,8 +378,14 @@ generateBtn.addEventListener("click", () => {
   const roomId = crypto.randomUUID();
   opponentInput.value = roomId;
   connectBtn.click(); // Auto-join the generated room
+  // Remove existing share button if any
+  const existingShareBtn = document.getElementById('share-game-btn');
+  if (existingShareBtn) {
+    existingShareBtn.remove();
+  }
   // Create styled share button
   const shareBtn = document.createElement('button');
+  shareBtn.id = 'share-game-btn';
   shareBtn.textContent = 'Share Game Link';
   shareBtn.classList.add('share-btn');
   const link = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
@@ -419,6 +425,9 @@ connectBtn.addEventListener("click", () => {
   }
   statusEl.textContent = "Status: Joining room...";
   console.log('Joining room:', roomId);
+  if (room) {
+    room.leave();
+  }
   room = joinRoom(config, roomId);
   // Setup actions for data exchange
   [sendReady, getReady] = room.makeAction('ready');
