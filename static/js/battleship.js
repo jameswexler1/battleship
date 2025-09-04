@@ -69,6 +69,19 @@ function adjustStatusPosition() {
       controlsDiv.after(statusEl);
     }
   }
+  adjustLayout();
+}
+function adjustLayout() {
+  const isMobile = window.innerWidth <= 768;
+  const padding = document.querySelector('.targets-padding');
+  if (padding) {
+    padding.style.display = isMobile ? 'none' : 'block';
+  }
+  const targetsEl = document.getElementById('targets');
+  if (targetsEl) {
+    targetsEl.style.marginLeft = isMobile ? '0' : '20px';
+    targetsEl.style.marginTop = isMobile ? '20px' : '0';
+  }
 }
 window.addEventListener('resize', adjustStatusPosition);
 adjustStatusPosition(); // Initial check
@@ -215,6 +228,76 @@ myBoard = createBoard(myBoardEl, true);
 opponentBoard = createBoard(opponentBoardEl, false);
 selectNextShip();
 readyBtn.style.display = "none";
+// Create targets list
+const targetsEl = document.createElement("div");
+targetsEl.id = "targets";
+targetsEl.style.width = "80px";
+const shipSizes = [
+  { size: 4, count: 1 },
+  { size: 3, count: 2 },
+  { size: 2, count: 3 },
+  { size: 1, count: 4 }
+];
+shipSizes.forEach(group => {
+  for (let i = 0; i < group.count; i++) {
+    const rep = document.createElement("div");
+    rep.classList.add("ship-rep");
+    rep.dataset.size = group.size;
+    for (let j = 0; j < group.size; j++) {
+      const mini = document.createElement("div");
+      mini.classList.add("mini-cell");
+      rep.appendChild(mini);
+    }
+    targetsEl.appendChild(rep);
+  }
+});
+// Wrap boards in containers
+const myContainer = myBoardEl.parentNode;
+const opponentContainer = opponentBoardEl.parentNode;
+const myBoardContainer = document.createElement("div");
+myBoardContainer.classList.add("board-container");
+myContainer.insertBefore(myBoardContainer, myBoardEl);
+myBoardContainer.appendChild(myBoardEl);
+const opponentBoardContainer = document.createElement("div");
+opponentBoardContainer.classList.add("board-container");
+opponentContainer.insertBefore(opponentBoardContainer, opponentBoardEl);
+opponentBoardContainer.appendChild(opponentBoardEl);
+opponentBoardContainer.appendChild(targetsEl);
+// Add padding to my board for balance
+const padding = document.createElement("div");
+padding.classList.add("targets-padding");
+padding.style.width = "100px";
+padding.style.flexShrink = "0";
+myBoardContainer.insertBefore(padding, myBoardEl);
+// Add styles
+const style = document.createElement("style");
+style.textContent = `
+.board-container {
+  display: flex;
+  align-items: flex-start;
+}
+@media (max-width: 768px) {
+  .board-container {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+.ship-rep {
+  display: flex;
+  margin-bottom: 5px;
+}
+.mini-cell {
+  width: 20px;
+  height: 20px;
+  background: #ccc;
+  border: 1px solid #999;
+  box-sizing: border-box;
+}
+.ship-rep.sunk .mini-cell {
+  background: #ff0000;
+}
+`;
+document.head.appendChild(style);
 // Your Metered iceServers array with credentials, expanded with more STUN servers
 const iceServers = [
   { urls: 'stun:stun.relay.metered.ca:80' },
@@ -422,6 +505,8 @@ function resetGame() {
     cell.el.addEventListener("mouseover", previewShip);
     cell.el.addEventListener("mouseout", clearPreview);
   });
+  // Reset target list
+  document.querySelectorAll('.ship-rep.sunk').forEach(el => el.classList.remove('sunk'));
 }
 function handleMove(x, y) {
   if (!gameStarted) return;
@@ -430,6 +515,7 @@ function handleMove(x, y) {
   cell.attacked = true;
   let hit = false;
   let surrounds = [];
+  let sunkSize = undefined;
   if (cell.hasShip) {
     cell.hit = true;
     cell.el.classList.add("hit");
@@ -445,6 +531,9 @@ function handleMove(x, y) {
       const hitPositions = sunkShip.positions.filter(p => myBoard[p.y][p.x].hit);
       const hitCount = hitPositions.length;
       const isSunk = hitCount === sunkShip.size;
+      if (isSunk) {
+        sunkSize = sunkShip.size;
+      }
       const surroundSet = new Set();
       const dirs = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
       const diagDirs = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
@@ -572,8 +661,8 @@ function handleMove(x, y) {
     cell.el.classList.add("miss");
   }
   // Send result
-  console.log('Sending result:', { type: "result", x, y, hit, surrounds });
-  sendResult({ type: "result", x, y, hit, surrounds });
+  console.log('Sending result:', { type: "result", x, y, hit, surrounds, sunkSize });
+  sendResult({ type: "result", x, y, hit, surrounds, sunkSize });
   if (!hit) {
     myTurn = true;
     statusEl.textContent = "Status: Your turn!";
@@ -590,6 +679,12 @@ function handleResult(data) {
     hitSound.play().catch(() => {});
     if ('vibrate' in navigator) {
       navigator.vibrate(200);
+    }
+    if (data.sunkSize) {
+      const shipRep = document.querySelector(`.ship-rep[data-size="${data.sunkSize}"]:not(.sunk)`);
+      if (shipRep) {
+        shipRep.classList.add("sunk");
+      }
     }
     if (myHits === totalShipCells) {
       statusEl.textContent = "Status: You win!";
