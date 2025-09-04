@@ -79,8 +79,8 @@ function adjustLayout() {
   }
   const targetsEl = document.getElementById('targets');
   if (targetsEl) {
-    targetsEl.style.marginLeft = isMobile ? '0' : '20px';
-    targetsEl.style.marginTop = isMobile ? '20px' : '0';
+    targetsEl.style.marginLeft = isMobile ? '0' : '30px';
+    targetsEl.style.marginTop = isMobile ? '30px' : '0';
   }
 }
 window.addEventListener('resize', adjustStatusPosition);
@@ -231,7 +231,7 @@ readyBtn.style.display = "none";
 // Create targets list
 const targetsEl = document.createElement("div");
 targetsEl.id = "targets";
-targetsEl.style.width = "80px";
+targetsEl.style.width = "60px";
 const shipSizes = [
   { size: 4, count: 1 },
   { size: 3, count: 2 },
@@ -284,17 +284,17 @@ style.textContent = `
 }
 .ship-rep {
   display: flex;
-  margin-bottom: 5px;
+  margin-bottom: 10px;
 }
 .mini-cell {
-  width: 20px;
-  height: 20px;
-  background: #ccc;
-  border: 1px solid #999;
+  width: 15px;
+  height: 15px;
+  background: #666;
+  border: 1px solid #333;
   box-sizing: border-box;
 }
 .ship-rep.sunk .mini-cell {
-  background: #ff0000;
+  background: #b22222;
 }
 `;
 document.head.appendChild(style);
