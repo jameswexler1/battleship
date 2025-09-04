@@ -79,8 +79,8 @@ function adjustLayout() {
   }
   const targetsEl = document.getElementById('targets');
   if (targetsEl) {
-    targetsEl.style.marginLeft = isMobile ? '0' : '20px';
-    targetsEl.style.marginTop = isMobile ? '20px' : '0';
+    targetsEl.style.marginLeft = isMobile ? '0' : '40px';
+    targetsEl.style.marginTop = isMobile ? '40px' : '0';
   }
 }
 window.addEventListener('resize', adjustStatusPosition);
@@ -266,7 +266,7 @@ opponentBoardContainer.appendChild(targetsEl);
 // Add padding to my board for balance
 const padding = document.createElement("div");
 padding.classList.add("targets-padding");
-padding.style.width = "100px";
+padding.style.width = "120px";
 padding.style.flexShrink = "0";
 myBoardContainer.insertBefore(padding, myBoardEl);
 // Add styles
@@ -284,17 +284,19 @@ style.textContent = `
 }
 .ship-rep {
   display: flex;
-  margin-bottom: 5px;
+  margin-bottom: 10px;
 }
 .mini-cell {
   width: 20px;
   height: 20px;
-  background: #ccc;
-  border: 1px solid #999;
+  background: lightblue;
+  border: 1px solid #1f3a5f;
   box-sizing: border-box;
+  transition: background 0.15s;
 }
 .ship-rep.sunk .mini-cell {
-  background: #ff0000;
+  background: #dc2626;
+  box-shadow: inset 0 0 6px #f87171;
 }
 `;
 document.head.appendChild(style);
