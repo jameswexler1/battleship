@@ -307,6 +307,23 @@ style.textContent = `
     margin: 0.3rem 0;
   }
 }
+.share-btn {
+  padding: 10px 20px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s;
+}
+.share-btn:hover {
+  background-color: #45a049;
+}
+.share-btn.copied {
+  background-color: #2196F3;
+  text-content: "Copied!";
+}
 `;
 document.head.appendChild(style);
 // Your Metered iceServers array with credentials, expanded with more STUN servers
@@ -361,10 +378,37 @@ generateBtn.addEventListener("click", () => {
   const roomId = crypto.randomUUID();
   opponentInput.value = roomId;
   connectBtn.click(); // Auto-join the generated room
-  // Create shareable link and append to controls
-  const shareP = document.createElement('p');
-  shareP.innerHTML = `Share this link: <a href="${window.location.origin}${window.location.pathname}?room=${roomId}">Join Game</a>`;
-  controlsDiv.appendChild(shareP);
+  // Create styled share button
+  const shareBtn = document.createElement('button');
+  shareBtn.textContent = 'Share Game Link';
+  shareBtn.classList.add('share-btn');
+  const link = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
+  shareBtn.addEventListener('click', async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Join my Battleship Game!',
+          text: 'Click to join the game:',
+          url: link
+        });
+      } catch (err) {
+        console.error('Share failed:', err);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(link);
+        shareBtn.textContent = 'Copied!';
+        shareBtn.classList.add('copied');
+        setTimeout(() => {
+          shareBtn.textContent = 'Share Game Link';
+          shareBtn.classList.remove('copied');
+        }, 2000);
+      } catch (err) {
+        console.error('Copy failed:', err);
+      }
+    }
+  });
+  controlsDiv.appendChild(shareBtn);
 });
 // Connect (Join Room) button
 connectBtn.addEventListener("click", () => {
