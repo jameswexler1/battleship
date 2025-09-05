@@ -1,0 +1,4 @@
+---
+title: "Wordle"
+type: "wordle"
+---

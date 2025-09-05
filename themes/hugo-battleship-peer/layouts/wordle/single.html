@@ -1,0 +1,16 @@
+{{ define "main" }}
+<div id="wordle-app">
+  <h3>Wordle</h3>
+  <select id="language-select">
+    <option value="en">English</option>
+    <option value="pt">Portuguese</option>
+    <option value="it">Italian</option>
+  </select>
+  <div id="game-board"></div>
+  <div id="keyboard"></div>
+  <div id="message"></div>
+  <button id="reset-btn" style="display: none;">Play Again</button>
+</div>
+
+<script src="/js/wordle.js"></script>
+{{ end }}

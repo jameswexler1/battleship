@@ -1,3 +1,4 @@
+/* ./static/css/battleship.css */
 /* General */
 body {
   font-family: "Segoe UI", Roboto, sans-serif;
@@ -168,6 +169,38 @@ button:hover {
   background: rgba(255,255,255,0.3) !important;
 }
 
+/* Chat */
+#chat {
+  margin-top: 2rem;
+  width: 300px;
+  max-width: 90vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#chat-log {
+  background: #1b2d44;
+  border: 1px solid #2a3e5c;
+  height: 200px;
+  overflow-y: scroll;
+  padding: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+}
+
+#chat-log p {
+  margin: 0.3rem 0;
+  color: #f1f1f1;
+}
+
+#chat-input {
+  width: 70%;
+  margin-right: 0.3rem;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   #boards {
@@ -191,6 +224,14 @@ button:hover {
   a.play-button {
     font-size: 1.2rem;
     padding: 0.5rem 1.5rem;
+  }
+
+  #chat {
+    width: 90vw;
+  }
+
+  #chat-input {
+    width: 60%;
   }
 }
 .site-header {
@@ -217,4 +258,224 @@ button:hover {
 .site-title {
   margin: 0; /* remove default h1 margin */
   font-size: 2rem;
+}
+
+/* Wordle Styles */
+#wordle-app {
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  text-align: center;
+  max-width: 100vw;
+  margin: 0 auto;
+  padding: 10px 0;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 100px); /* Adjust based on header/footer height */
+}
+
+#language-select {
+  margin-bottom: 10px;
+  padding: 6px;
+  font-size: 14px;
+  background: #1b2d44;
+  color: #f1f1f1;
+  border: 1px solid #3a3a3c;
+  border-radius: 4px;
+}
+
+#game-board {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 15px;
+}
+
+.row {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+}
+
+.tile {
+  width: 50px;
+  height: 50px;
+  border: 2px solid #3a3a3c;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: bold;
+  text-transform: uppercase;
+  background: #121213;
+  color: #fff;
+  transition: transform 0.1s;
+}
+
+.tile.filled {
+  animation: pop 0.1s ease-in-out;
+}
+
+.tile.flip {
+  animation: flip 0.5s ease forwards;
+}
+
+.correct {
+  background: #6aaa64;
+  border-color: #6aaa64;
+}
+
+.present {
+  background: #c9b458;
+  border-color: #c9b458;
+}
+
+.absent {
+  background: #787c7e;
+  border-color: #787c7e;
+}
+
+#keyboard {
+  max-width: 90vw;
+  margin: 0 auto 10px;
+}
+
+.keyboard-row {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.keyboard-row.second-row {
+  margin-left: 16px; /* Indent like original, adjusted for compactness */
+}
+
+.key {
+  min-width: 36px;
+  height: 48px;
+  background: #818384;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+  transition: background 0.2s;
+}
+
+.key.wide {
+  min-width: 54px;
+  font-size: 10px;
+}
+
+.key.correct {
+  background: #6aaa64;
+}
+
+.key.present {
+  background: #c9b458;
+}
+
+.key.absent {
+  background: #3a3a3c;
+}
+
+#message {
+  margin: 10px 0;
+  font-size: 24px;
+  font-weight: bold;
+  height: auto;
+  color: #fff;
+}
+
+#message.win {
+  color: #6aaa64;
+}
+
+#message.lose {
+  color: #dc2626;
+}
+
+#reset-btn {
+  margin-top: 10px;
+  padding: 10px 20px;
+  font-size: 16px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Animations */
+@keyframes pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes flip {
+  0% {
+    transform: rotateX(0deg);
+  }
+  49.9999% {
+    transform: rotateX(90deg);
+  }
+  50% {
+    transform: rotateX(270deg);
+  }
+  100% {
+    transform: rotateX(360deg);
+  }
+}
+
+@keyframes shake {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+  100% { transform: translateX(0); }
+}
+
+.row.shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  #wordle-app {
+    padding: 5px 0;
+  }
+  .tile {
+    width: calc(18vw - 5px);
+    height: calc(18vw - 5px);
+    font-size: calc(6vw);
+  }
+  .key {
+    min-width: calc(8vw - 4px);
+    height: calc(12vw - 4px);
+    font-size: calc(3vw);
+  }
+  .key.wide {
+    min-width: calc(12vw - 4px);
+    font-size: calc(2.5vw);
+  }
+  .keyboard-row.second-row {
+    margin-left: calc(4vw);
+  }
+  #message {
+    font-size: 20px;
+  }
+  #reset-btn {
+    font-size: 14px;
+    padding: 8px 16px;
+  }
 }
