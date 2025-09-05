@@ -1,6 +1,6 @@
 baseURL = "/"
 languageCode = "en-us"
-title = "Pavia"
+title = "Game Room"
 theme = "hugo-battleship-peer"
 [markup]
   [markup.goldmark]
