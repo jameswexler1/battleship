@@ -259,8 +259,8 @@ button:hover {
   justify-content: center;
 }
 .tile {
-  width: 62px;
-  height: 62px;
+  width: 65px; /* Increased for larger grid */
+  height: 65px;
   border: 2px solid #3a3a3c;
   border-radius: 3px;
   display: flex;
@@ -298,20 +298,20 @@ button:hover {
 .keyboard-row {
   display: flex;
   justify-content: center;
-  gap: 4px; /* Reduced for tighter packing */
-  margin-bottom: 6px; /* Reduced row spacing */
+  gap: 3px; /* Tighter for reduced size */
+  margin-bottom: 4px; /* Tighter row spacing */
 }
 .keyboard-row.second-row {
-  margin-left: 21px; /* Half key width for indent */
+  margin-left: 15px; /* Reduced indent for compactness */
 }
 .key {
-  min-width: 43px;
-  height: 58px;
+  min-width: 40px; /* Reduced for smaller keyboard */
+  height: 55px; /* Slightly reduced height */
   background: #818384;
   color: #fff;
   border: none;
   border-radius: 4px;
-  font-size: 16px; /* Increased for bigger letters */
+  font-size: 18px; /* Bigger letters */
   font-weight: bold;
   cursor: pointer;
   display: flex;
@@ -321,8 +321,8 @@ button:hover {
   transition: background 0.2s;
 }
 .key.wide {
-  min-width: 65px;
-  font-size: 14px; /* Slightly larger than before for wide keys */
+  min-width: 60px; /* Reduced for compactness */
+  font-size: 16px; /* Bigger than before */
 }
 .key.correct {
   background: #6aaa64;
@@ -390,9 +390,9 @@ button:hover {
 /* Responsive */
 @media (max-width: 768px) {
   .tile {
-    width: min(60px, calc((100vw - 40px) / 5)); /* Scale with cap */
-    height: min(60px, calc((100vw - 40px) / 5));
-    font-size: min(32px, 6vw);
+    width: min(65px, calc((100vw - 20px) / 5)); /* Increased cap, tighter padding for larger grid */
+    height: min(65px, calc((100vw - 20px) / 5));
+    font-size: min(32px, 6.5vw); /* Slight increase for "zoom" */
   }
   #game-board {
     gap: 5px; /* Slightly reduced for mobile */
@@ -401,20 +401,20 @@ button:hover {
     gap: 5px;
   }
   .keyboard-row {
-    gap: 3px; /* Tighter for packing */
-    margin-bottom: 4px;
+    gap: 2px; /* Tighter for reduced size */
+    margin-bottom: 3px;
   }
   .keyboard-row.second-row {
-    margin-left: calc(4.5vw); /* Dynamic indent */
+    margin-left: calc(3vw); /* Tighter dynamic indent */
   }
   .key {
-    min-width: min(43px, calc((100vw - 40px - 9 * 3px) / 10)); /* Dynamic calc for first row (10 keys, 9 gaps, 40px padding) */
-    height: min(58px, 14vw);
-    font-size: min(16px, 4vw); /* Bigger letters with scaling */
+    min-width: min(40px, calc((100vw - 20px - 9 * 2px) / 10)); /* Tighter padding/gaps for fit */
+    height: min(55px, 13vw);
+    font-size: min(18px, 4.5vw); /* Bigger letters with scaling */
   }
   .key.wide {
-    min-width: min(65px, calc((100vw - 40px - 8 * 3px) / 9)); /* Adjust for bottom row (approx 9 effective units) */
-    font-size: min(14px, 3vw);
+    min-width: min(60px, calc((100vw - 20px - 8 * 2px) / 9)); /* Tighter for bottom row */
+    font-size: min(16px, 3.5vw);
   }
   #message {
     font-size: 18px;
@@ -426,24 +426,24 @@ button:hover {
 }
 @media (max-width: 420px) { /* Tighter for small phones */
   .tile {
-    width: min(50px, calc((100vw - 40px) / 5)); /* Extra min cap */
-    height: min(50px, calc((100vw - 40px) / 5));
-    font-size: min(28px, 6vw);
+    width: min(55px, calc((100vw - 10px) / 5)); /* Tighter padding for "zoom" fit */
+    height: min(55px, calc((100vw - 10px) / 5));
+    font-size: min(28px, 6.5vw);
   }
   .keyboard-row {
-    gap: 2px;
-    margin-bottom: 3px;
+    gap: 1px;
+    margin-bottom: 2px;
   }
   .keyboard-row.second-row {
-    margin-left: calc(3.5vw);
+    margin-left: calc(2.5vw);
   }
   .key {
-    min-width: min(40px, calc((100vw - 30px - 9 * 2px) / 10)); /* Tighter padding/gaps */
-    height: min(50px, 14vw);
-    font-size: min(14px, 4vw); /* Adjusted for bigger letters */
+    min-width: min(35px, calc((100vw - 10px - 9 * 1px) / 10)); /* Even tighter */
+    height: min(50px, 13vw);
+    font-size: min(16px, 4.5vw);
   }
   .key.wide {
-    min-width: min(60px, calc((100vw - 30px - 8 * 2px) / 9));
-    font-size: min(12px, 3vw);
+    min-width: min(55px, calc((100vw - 10px - 8 * 1px) / 9));
+    font-size: min(14px, 3.5vw);
   }
 }
