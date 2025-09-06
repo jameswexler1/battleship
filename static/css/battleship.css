@@ -408,7 +408,7 @@ button:hover {
     margin-left: calc(3vw); /* Tighter dynamic indent */
   }
   .key {
-    min-width: min(40px, calc((100vw - 20px - 9 * 2px) / 10)); /* Tighter padding/gaps for fit */
+    min-width: min(40px, calc((100vw - 20px - 9 * 1px) / 10));
     height: min(55px, 13vw);
     font-size: min(18px, 4.5vw); /* Bigger letters with scaling */
   }
