@@ -7284,7 +7284,7 @@ export function handleResult(data, state, statusEl, rematchBtn) {
 === ./hugo.toml ===
 baseURL = "/"
 languageCode = "en-us"
-title = "Battleship Game"
+title = "Game Room"
 theme = "hugo-battleship-peer"
 [markup]
   [markup.goldmark]
@@ -7332,7 +7332,7 @@ with open(output_file, "wb") as out_f:  # open in binary mode
 
 === ./content/_index.md ===
 ---
-title: "Welcome to Battleship"
+title: "Welcome to Pavia"
 ---
 # Battleship Online
 Play the classic Battleship game **directly in your browser**, peer-to-peer with your friends.
@@ -7373,7 +7373,6 @@ body {
   flex-direction: column;
   min-height: 100vh;
 }
-
 header, footer {
   text-align: center;
   padding: 1rem;
@@ -7381,7 +7380,6 @@ header, footer {
   color: #fff;
   box-shadow: 0 2px 6px rgba(0,0,0,0.4);
 }
-
 main {
   flex: 1;
   padding: 1rem;
@@ -7389,14 +7387,12 @@ main {
   flex-direction: column;
   align-items: center;
 }
-
 /* Landing page */
 .landing h1 {
   font-size: 3rem;
   margin: 1rem 0;
   color: #00bfff;
 }
-
 .landing p {
   font-size: 1.3rem;
   max-width: 600px;
@@ -7404,7 +7400,6 @@ main {
   margin: 0.5rem 0;
   color: #a0c4ff;
 }
-
 a.play-button {
   display: inline-block;
   margin-top: 2rem;
@@ -7417,12 +7412,10 @@ a.play-button {
   box-shadow: 0 0 8px rgba(37,99,235,0.6);
   transition: background-color 0.3s, transform 0.2s;
 }
-
 a.play-button:hover {
   background-color: #1e4fb8;
   transform: scale(1.05);
 }
-
 /* Status + Controls */
 #status {
   margin: 1rem 0;
@@ -7431,7 +7424,6 @@ a.play-button:hover {
   font-size: 1.2rem;
   color: #66d9ef;
 }
-
 input, button {
   font-size: 1rem;
   padding: 0.5rem 1rem;
@@ -7439,24 +7431,20 @@ input, button {
   border: none;
   margin: 0.3rem;
 }
-
 input {
   background: #1b2d44;
   color: #f1f1f1;
   border: 1px solid #2a3e5c;
 }
-
 button {
   background: #2563eb;
   color: white;
   cursor: pointer;
   transition: background 0.2s;
 }
-
 button:hover {
   background: #1e4fb8;
 }
-
 /* Boards */
 #boards {
   display: flex;
@@ -7465,7 +7453,6 @@ button:hover {
   flex-wrap: wrap;
   justify-content: center;
 }
-
 .board {
   display: grid;
   grid-template-columns: repeat(10, 1fr);
@@ -7479,7 +7466,6 @@ button:hover {
   border-radius: 8px;
   box-shadow: 0 0 10px rgba(74,144,226,0.6);
 }
-
 .cell {
   background: #142d46;
   border: 1px solid #1f3a5f;
@@ -7490,32 +7476,26 @@ button:hover {
   transition: background 0.15s;
   position: relative;
 }
-
 .cell:hover {
   background: #1f3a5f;
 }
-
 /* States */
 .ship {
   background: lightblue;
 }
-
 .hit {
   background: #dc2626 !important;
   box-shadow: inset 0 0 6px #f87171;
 }
-
 .miss {
   background: #3b82f6 !important;
   box-shadow: inset 0 0 6px #60a5fa;
 }
-
 .deduced-miss {
   background: #6b7280 !important; /* Gray background */
   box-shadow: inset 0 0 6px #9ca3af;
   cursor: default;
 }
-
 .deduced-miss::after {
   content: '';
   position: absolute;
@@ -7527,11 +7507,9 @@ button:hover {
   background: #000; /* Small black dot */
   border-radius: 50%;
 }
-
 .preview {
   background: rgba(255,255,255,0.3) !important;
 }
-
 /* Chat */
 #chat {
   margin-top: 2rem;
@@ -7541,7 +7519,6 @@ button:hover {
   flex-direction: column;
   align-items: center;
 }
-
 #chat-log {
   background: #1b2d44;
   border: 1px solid #2a3e5c;
@@ -7553,46 +7530,37 @@ button:hover {
   border-radius: 6px;
   margin-bottom: 0.5rem;
 }
-
 #chat-log p {
   margin: 0.3rem 0;
   color: #f1f1f1;
 }
-
 #chat-input {
   width: 70%;
   margin-right: 0.3rem;
 }
-
 /* Responsive */
 @media (max-width: 768px) {
   #boards {
     flex-direction: column;
     gap: 1rem;
   }
-
   .board {
     width: 90vw;
   }
-
   .landing h1 {
     font-size: 2.2rem;
   }
-
   .landing p {
     font-size: 1.1rem;
     padding: 0 1rem;
   }
-
   a.play-button {
     font-size: 1.2rem;
     padding: 0.5rem 1.5rem;
   }
-
   #chat {
     width: 90vw;
   }
-
   #chat-input {
     width: 60%;
   }
@@ -7600,10 +7568,9 @@ button:hover {
 .site-header {
   display: flex;
   align-items: center; /* vertically center items */
-  gap: 1rem;           /* space between button and title */
+  gap: 1rem; /* space between button and title */
   padding: 1rem;
 }
-
 .back-button {
   display: inline-block;
   padding: 0.5rem 1rem;
@@ -7613,16 +7580,13 @@ button:hover {
   border-radius: 6px;
   transition: background-color 0.2s ease;
 }
-
 .back-button:hover {
   background-color: #1e4fb8;
 }
-
 .site-title {
   margin: 0; /* remove default h1 margin */
   font-size: 2rem;
 }
-
 /* Wordle Styles */
 #wordle-app {
   font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -7637,7 +7601,6 @@ button:hover {
   justify-content: center;
   min-height: calc(100vh - 100px); /* Adjust based on header/footer height */
 }
-
 #language-select {
   margin-bottom: 10px;
   padding: 6px;
@@ -7647,20 +7610,17 @@ button:hover {
   border: 1px solid #3a3a3c;
   border-radius: 4px;
 }
-
 #game-board {
   display: flex;
   flex-direction: column;
   gap: 5px;
   margin-bottom: 15px;
 }
-
 .row {
   display: flex;
   gap: 5px;
   justify-content: center;
 }
-
 .tile {
   width: 50px;
   height: 50px;
@@ -7676,46 +7636,37 @@ button:hover {
   color: #fff;
   transition: transform 0.1s;
 }
-
 .tile.filled {
   animation: pop 0.1s ease-in-out;
 }
-
 .tile.flip {
   animation: flip 0.5s ease forwards;
 }
-
 .correct {
   background: #6aaa64;
   border-color: #6aaa64;
 }
-
 .present {
   background: #c9b458;
   border-color: #c9b458;
 }
-
 .absent {
   background: #787c7e;
   border-color: #787c7e;
 }
-
 #keyboard {
-  max-width: 90vw;
+  max-width: 85vw;
   margin: 0 auto 10px;
 }
-
 .keyboard-row {
   display: flex;
   justify-content: center;
-  gap: 4px;
-  margin-bottom: 4px;
+  gap: 2px;
+  margin-bottom: 2px;
 }
-
 .keyboard-row.second-row {
-  margin-left: 16px; /* Indent like original, adjusted for compactness */
+  margin-left: 12px; /* Indent like original, adjusted for compactness */
 }
-
 .key {
   min-width: 36px;
   height: 48px;
@@ -7732,24 +7683,19 @@ button:hover {
   text-transform: uppercase;
   transition: background 0.2s;
 }
-
 .key.wide {
   min-width: 54px;
   font-size: 10px;
 }
-
 .key.correct {
   background: #6aaa64;
 }
-
 .key.present {
   background: #c9b458;
 }
-
 .key.absent {
   background: #3a3a3c;
 }
-
 #message {
   margin: 10px 0;
   font-size: 24px;
@@ -7757,15 +7703,12 @@ button:hover {
   height: auto;
   color: #fff;
 }
-
 #message.win {
   color: #6aaa64;
 }
-
 #message.lose {
   color: #dc2626;
 }
-
 #reset-btn {
   margin-top: 10px;
   padding: 10px 20px;
@@ -7776,14 +7719,12 @@ button:hover {
   border-radius: 4px;
   cursor: pointer;
 }
-
 /* Animations */
 @keyframes pop {
   0% { transform: scale(1); }
   50% { transform: scale(1.05); }
   100% { transform: scale(1); }
 }
-
 @keyframes flip {
   0% {
     transform: rotateX(0deg);
@@ -7798,7 +7739,6 @@ button:hover {
     transform: rotateX(360deg);
   }
 }
-
 @keyframes shake {
   0% { transform: translateX(0); }
   20% { transform: translateX(-4px); }
@@ -7807,11 +7747,9 @@ button:hover {
   80% { transform: translateX(4px); }
   100% { transform: translateX(0); }
 }
-
 .row.shake {
   animation: shake 0.5s ease-in-out;
 }
-
 /* Responsive */
 @media (max-width: 768px) {
   #wordle-app {
@@ -7823,23 +7761,27 @@ button:hover {
     font-size: calc(6vw);
   }
   .key {
-    min-width: calc(8vw - 4px);
-    height: calc(12vw - 4px);
-    font-size: calc(3vw);
+    min-width: calc(7vw - 3px);
+    height: calc(11vw - 3px);
+    font-size: calc(2.8vw);
   }
   .key.wide {
-    min-width: calc(12vw - 4px);
-    font-size: calc(2.5vw);
+    min-width: calc(11vw - 3px);
+    font-size: calc(2.3vw);
+  }
+  .keyboard-row {
+    gap: 1.5px;
+    margin-bottom: 1.5px;
   }
   .keyboard-row.second-row {
-    margin-left: calc(4vw);
+    margin-left: calc(3.5vw - 1.5px);
   }
   #message {
-    font-size: 20px;
+    font-size: 18px;
   }
   #reset-btn {
-    font-size: 14px;
-    padding: 8px 16px;
+    font-size: 13px;
+    padding: 7px 14px;
   }
 }
 
@@ -7951,6 +7893,6 @@ description = "Minimal theme for Battleship PeerJS game"
 
 
 === ./themes/hugo-battleship-peer/layouts/partials/footer.html ===
-<p style="text-align:center; margin-top:2em;">&copy; 2025 Battleship</p>
+<p style="text-align:center; margin-top:2em;">&copy; 2025 Pavia</p>
 
 

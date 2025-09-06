@@ -250,23 +250,23 @@ button:hover {
 #game-board {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px; /* Matches NYT gap */
   margin-bottom: 15px;
 }
 .row {
   display: flex;
-  gap: 5px;
+  gap: 6px; /* Matches NYT gap */
   justify-content: center;
 }
 .tile {
-  width: 50px;
-  height: 50px;
+  width: 62px;
+  height: 62px;
   border: 2px solid #3a3a3c;
   border-radius: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 32px;
   font-weight: bold;
   text-transform: uppercase;
   background: #121213;
@@ -292,26 +292,26 @@ button:hover {
   border-color: #787c7e;
 }
 #keyboard {
-  max-width: 85vw;
+  max-width: 95vw; /* Slightly wider for better fit */
   margin: 0 auto 10px;
 }
 .keyboard-row {
   display: flex;
   justify-content: center;
-  gap: 2px;
-  margin-bottom: 2px;
+  gap: 6px; /* Base gap */
+  margin-bottom: 8px; /* Row spacing */
 }
 .keyboard-row.second-row {
-  margin-left: 12px; /* Indent like original, adjusted for compactness */
+  margin-left: 21px; /* Half key width for indent */
 }
 .key {
-  min-width: 36px;
-  height: 48px;
+  min-width: 43px;
+  height: 58px;
   background: #818384;
   color: #fff;
   border: none;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: bold;
   cursor: pointer;
   display: flex;
@@ -321,8 +321,8 @@ button:hover {
   transition: background 0.2s;
 }
 .key.wide {
-  min-width: 54px;
-  font-size: 10px;
+  min-width: 65px;
+  font-size: 12px;
 }
 .key.correct {
   background: #6aaa64;
@@ -389,29 +389,32 @@ button:hover {
 }
 /* Responsive */
 @media (max-width: 768px) {
-  #wordle-app {
-    padding: 5px 0;
-  }
   .tile {
-    width: calc(18vw - 5px);
-    height: calc(18vw - 5px);
-    font-size: calc(6vw);
+    width: min(60px, calc((100vw - 40px) / 5)); /* Scale with cap */
+    height: min(60px, calc((100vw - 40px) / 5));
+    font-size: min(32px, 6vw);
   }
-  .key {
-    min-width: calc(7vw - 3px);
-    height: calc(11vw - 3px);
-    font-size: calc(2.8vw);
+  #game-board {
+    gap: 5px; /* Slightly reduced for mobile */
   }
-  .key.wide {
-    min-width: calc(11vw - 3px);
-    font-size: calc(2.3vw);
+  .row {
+    gap: 5px;
   }
   .keyboard-row {
-    gap: 1.5px;
-    margin-bottom: 1.5px;
+    gap: 5px;
+    margin-bottom: 5px;
   }
   .keyboard-row.second-row {
-    margin-left: calc(3.5vw - 1.5px);
+    margin-left: calc(4.5vw); /* Dynamic indent */
+  }
+  .key {
+    min-width: min(43px, calc(10% - 6px)); /* Scale with cap */
+    height: min(58px, 14vw);
+    font-size: min(12px, 3.5vw);
+  }
+  .key.wide {
+    min-width: min(65px, calc(15% - 6px));
+    font-size: min(10px, 2.5vw);
   }
   #message {
     font-size: 18px;
@@ -419,5 +422,28 @@ button:hover {
   #reset-btn {
     font-size: 13px;
     padding: 7px 14px;
+  }
+}
+@media (max-width: 420px) { /* Tighter for small phones */
+  .tile {
+    width: min(50px, calc((100vw - 40px) / 5)); /* Extra min cap */
+    height: min(50px, calc((100vw - 40px) / 5));
+    font-size: min(28px, 6vw);
+  }
+  .keyboard-row {
+    gap: 3px;
+    margin-bottom: 3px;
+  }
+  .keyboard-row.second-row {
+    margin-left: calc(3.5vw);
+  }
+  .key {
+    min-width: min(40px, calc(10% - 6px));
+    height: min(50px, 14vw);
+    font-size: min(11px, 3.5vw);
+  }
+  .key.wide {
+    min-width: min(60px, calc(15% - 6px));
+    font-size: min(9px, 2.5vw);
   }
 }
