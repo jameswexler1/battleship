@@ -7613,23 +7613,23 @@ button:hover {
 #game-board {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px; /* Matches NYT gap */
   margin-bottom: 15px;
 }
 .row {
   display: flex;
-  gap: 5px;
+  gap: 6px; /* Matches NYT gap */
   justify-content: center;
 }
 .tile {
-  width: 50px;
-  height: 50px;
+  width: 65px; /* Increased for larger grid */
+  height: 65px;
   border: 2px solid #3a3a3c;
   border-radius: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 32px;
   font-weight: bold;
   text-transform: uppercase;
   background: #121213;
@@ -7655,26 +7655,26 @@ button:hover {
   border-color: #787c7e;
 }
 #keyboard {
-  max-width: 85vw;
+  max-width: 100vw; /* Ensure it doesn't exceed screen width */
   margin: 0 auto 10px;
 }
 .keyboard-row {
   display: flex;
   justify-content: center;
-  gap: 2px;
-  margin-bottom: 2px;
+  gap: 3px; /* Tighter for reduced size */
+  margin-bottom: 4px; /* Tighter row spacing */
 }
 .keyboard-row.second-row {
-  margin-left: 12px; /* Indent like original, adjusted for compactness */
+  margin-left: 15px; /* Reduced indent for compactness */
 }
 .key {
-  min-width: 36px;
-  height: 48px;
+  min-width: 40px; /* Reduced for smaller keyboard */
+  height: 55px; /* Slightly reduced height */
   background: #818384;
   color: #fff;
   border: none;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 18px; /* Bigger letters */
   font-weight: bold;
   cursor: pointer;
   display: flex;
@@ -7684,8 +7684,8 @@ button:hover {
   transition: background 0.2s;
 }
 .key.wide {
-  min-width: 54px;
-  font-size: 10px;
+  min-width: 60px; /* Reduced for compactness */
+  font-size: 16px; /* Bigger than before */
 }
 .key.correct {
   background: #6aaa64;
@@ -7752,29 +7752,32 @@ button:hover {
 }
 /* Responsive */
 @media (max-width: 768px) {
-  #wordle-app {
-    padding: 5px 0;
-  }
   .tile {
-    width: calc(18vw - 5px);
-    height: calc(18vw - 5px);
-    font-size: calc(6vw);
+    width: min(65px, calc((100vw - 20px) / 5)); /* Increased cap, tighter padding for larger grid */
+    height: min(65px, calc((100vw - 20px) / 5));
+    font-size: min(32px, 6.5vw); /* Slight increase for "zoom" */
   }
-  .key {
-    min-width: calc(7vw - 3px);
-    height: calc(11vw - 3px);
-    font-size: calc(2.8vw);
+  #game-board {
+    gap: 5px; /* Slightly reduced for mobile */
   }
-  .key.wide {
-    min-width: calc(11vw - 3px);
-    font-size: calc(2.3vw);
+  .row {
+    gap: 5px;
   }
   .keyboard-row {
-    gap: 1.5px;
-    margin-bottom: 1.5px;
+    gap: 2px; /* Tighter for reduced size */
+    margin-bottom: 3px;
   }
   .keyboard-row.second-row {
-    margin-left: calc(3.5vw - 1.5px);
+    margin-left: calc(3vw); /* Tighter dynamic indent */
+  }
+  .key {
+    min-width: min(40px, calc((100vw - 20px - 9 * 1px) / 10));
+    height: min(55px, 13vw);
+    font-size: min(18px, 4.5vw); /* Bigger letters with scaling */
+  }
+  .key.wide {
+    min-width: min(60px, calc((100vw - 20px - 8 * 2px) / 9)); /* Tighter for bottom row */
+    font-size: min(16px, 3.5vw);
   }
   #message {
     font-size: 18px;
@@ -7782,6 +7785,29 @@ button:hover {
   #reset-btn {
     font-size: 13px;
     padding: 7px 14px;
+  }
+}
+@media (max-width: 420px) { /* Tighter for small phones */
+  .tile {
+    width: min(55px, calc((100vw - 10px) / 5)); /* Tighter padding for "zoom" fit */
+    height: min(55px, calc((100vw - 10px) / 5));
+    font-size: min(28px, 6.5vw);
+  }
+  .keyboard-row {
+    gap: 1px;
+    margin-bottom: 2px;
+  }
+  .keyboard-row.second-row {
+    margin-left: calc(2.5vw);
+  }
+  .key {
+    min-width: min(35px, calc((100vw - 10px - 9 * 1px) / 10)); /* Even tighter */
+    height: min(50px, 13vw);
+    font-size: min(16px, 4.5vw);
+  }
+  .key.wide {
+    min-width: min(55px, calc((100vw - 10px - 8 * 1px) / 9));
+    font-size: min(14px, 3.5vw);
   }
 }
 
