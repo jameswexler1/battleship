@@ -187,7 +187,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
   font-family: 'Oxanium', 'Helvetica Neue', Arial, sans-serif;
   text-align: center;
   width: 100%;
-  max-width: 500px;
+  max-width: 100%;
   margin: 0 auto;
   padding: 10px 0 20px;
   box-sizing: border-box;
@@ -226,6 +226,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .row {
   display: flex;
   gap: 5px;
+  justify-content: center;
 }
 .tile {
   width: min(52px, calc((100vw - 56px) / 5));
@@ -250,7 +251,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 .absent  { background: #374151 !important; border-color: #4b5563 !important; }
 #keyboard {
   width: 100%;
-  padding: 0 4px;
+  padding: 0 2px;
   box-sizing: border-box;
   margin-bottom: 8px;
 }
