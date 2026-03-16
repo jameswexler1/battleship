@@ -165,6 +165,13 @@ async function evaluateGuess(guess) {
     }
   });
 
+  // Mark absent letters so keyboard keys go grey
+  guessArray.forEach((letter, i) => {
+    if (statuses[i] === 'absent') {
+      keyMap[letter] = keyMap[letter] || 'absent';
+    }
+  });
+
   // Animate flips sequentially
   for (let i = 0; i < tiles.length; i++) {
     tiles[i].classList.add('flip');
