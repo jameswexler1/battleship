@@ -197,28 +197,33 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 #keyboard {
   width: 100%;
   max-width: 500px;
-  margin: 0 auto 10px;
+  margin: 0 auto 8px;
   padding: 0 8px;
   box-sizing: border-box;
 }
 .keyboard-row {
   display: flex;
   justify-content: center;
-  gap: 6px;
   margin-bottom: 8px;
-  width: 100%;
+  touch-action: manipulation;
 }
-.keyboard-row.second-row {
-  padding: 0 calc(100% * 0.05);
+/* NYT trick: half-flex spacers flank the 9-key middle row so all
+   three rows share the same key width (10 flex units each). */
+.keyboard-row.second-row::before,
+.keyboard-row.second-row::after {
+  content: '';
+  flex: 0.5;
 }
 .key {
+  font-family: 'Oxanium', sans-serif;
   flex: 1;
   height: 58px;
-  max-width: 43px;
+  padding: 0;
+  margin: 0 6px 0 0;
+  border: 0;
+  border-radius: 4px;
   background: var(--steel);
   color: var(--text);
-  border: 1px solid var(--navy-600);
-  border-radius: 4px;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
@@ -226,15 +231,13 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
   align-items: center;
   justify-content: center;
   text-transform: uppercase;
-  transition: background 0.15s, transform 0.1s;
-  font-family: 'Oxanium', sans-serif;
-  padding: 0;
-  min-width: 0;
+  transition: background 0.15s;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
-.key:hover  { background: var(--navy-500); transform: translateY(-1px); }
-.key.wide   { flex: 1.5; max-width: 65px; font-size: 12px; }
+.key:last-child { margin: 0; }
+.key:hover  { background: var(--navy-500); }
+.key.wide   { flex: 1.5; font-size: 12px; }
 .key.correct { background: #166534; border-color: #22c55e; }
 .key.present { background: #92400e; border-color: #f59e0b; }
 .key.absent  { background: #1f2937; border-color: #374151; color: var(--text-dim); }
@@ -261,10 +264,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
   .targets-padding { display:none; }
   #chat { width:90vw; }
   .tile { width:min(62px, calc((100vw - 24px) / 5)); height:min(62px, calc((100vw - 24px) / 5)); font-size:min(28px, 6vw); }
-  .keyboard-row { gap:3px; margin-bottom:4px; }
-  .keyboard-row.second-row { margin-left:10px; }
-  .key { min-width:min(38px, calc((100vw - 20px - 9 * 3px) / 10)); height:min(52px, 13vw); font-size:min(15px, 4vw); }
-  .key.wide { min-width:min(56px, calc((100vw - 20px - 8 * 3px) / 9)); font-size:min(13px, 3.2vw); }
 }
 @media (max-width: 420px) {
   .tile { width:min(54px, calc((100vw - 12px) / 5)); height:min(54px, calc((100vw - 12px) / 5)); }
