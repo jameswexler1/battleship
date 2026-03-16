@@ -1,271 +1,204 @@
 // ./static/js/connectivity.js
-import { joinRoom, selfId } from 'https://esm.run/trystero/torrent';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { config } from './config.js';
-import { allShipsPlaced } from './board.js';
+import { allShipsPlaced, selectNextShip } from './board.js';
 
-export function initConnectivity(generateBtn, connectBtn, opponentInput, myIdEl, statusEl, controlsDiv, readyBtn, rematchBtn, state, startGame, resetGame, handleMove, handleResult) {
-  myIdEl.textContent = selfId;
-  generateBtn.addEventListener("click", () => {
+let myId = localStorage.getItem('battleship-peer-id');
+if (!myId) {
+  myId = crypto.randomUUID();
+  localStorage.setItem('battleship-peer-id', myId);
+}
+export const selfId = myId;
+
+export function initConnectivity(
+  generateBtn, connectBtn, opponentInput, myIdEl,
+  statusEl, controlsDiv, readyBtn, rematchBtn,
+  state, startGame, resetGame, handleMove, handleResult
+) {
+  const supabase = createClient(config.supabaseUrl, config.supabaseKey);
+  myIdEl.textContent = myId.slice(0, 8) + '…';
+
+  let channel = null;
+
+  const toggleConnectUI = (showIt) => {
+    connectBtn.style.display    = showIt ? 'inline-block' : 'none';
+    opponentInput.style.display = showIt ? 'inline-block' : 'none';
+  };
+
+  const setStatus = (msg, type = '') => {
+    statusEl.textContent = msg;
+    statusEl.dataset.statusType = type;
+  };
+
+  const leaveChannel = () => {
+    if (channel) { supabase.removeChannel(channel); channel = null; }
+  };
+
+  const joinRoom = (roomId) => {
+    leaveChannel();
+    state.roomId = roomId;
+    const loaded = state.loadAndApply(roomId);
+    setStatus('Status: Connecting…', 'waiting');
+
+    channel = supabase.channel(`battleship-v2-${roomId}`, {
+      config: {
+        broadcast: { self: false, ack: false },
+        presence:  { key: myId },
+      },
+    });
+
+    state.sendReady   = (data) => channel.send({ type: 'broadcast', event: 'ready',   payload: data });
+    state.sendMove    = (data) => channel.send({ type: 'broadcast', event: 'move',    payload: data });
+    state.sendResult  = (data) => channel.send({ type: 'broadcast', event: 'result',  payload: data });
+    state.sendRematch = (data) => channel.send({ type: 'broadcast', event: 'rematch', payload: data });
+    state.sendChat    = (msg)  => channel.send({ type: 'broadcast', event: 'chat',    payload: { msg } });
+
+    state.room = {
+      getPeers: () => {
+        const presence = channel.presenceState();
+        return Object.fromEntries(
+          Object.keys(presence).filter(k => k !== myId).map(k => [k, true])
+        );
+      },
+      leave: leaveChannel,
+    };
+
+    channel.on('presence', { event: 'sync' }, () => {
+      const peers = Object.keys(channel.presenceState()).filter(k => k !== myId);
+      if (peers.length > 0 && !state.opponentConnected) handlePeerArrived(peers[0]);
+    });
+
+    channel.on('presence', { event: 'join' }, ({ key }) => {
+      if (key === myId) return;
+      const peers = Object.keys(channel.presenceState()).filter(k => k !== myId);
+      if (peers.length > 1) { setStatus('Error: Room is full (2 players max).', 'error'); return; }
+      handlePeerArrived(key);
+    });
+
+    channel.on('presence', { event: 'leave' }, ({ key }) => {
+      if (key === myId) return;
+      state.opponentConnected = false;
+      setStatus('⚠ Opponent disconnected — waiting for reconnect…', 'warning');
+      connectBtn.textContent = 'Reconnect';
+      toggleConnectUI(true);
+    });
+
+    channel.on('broadcast', { event: 'ready' },   ({ payload }) => {
+      state.opponentReady = true;
+      setStatus('Status: Opponent is ready!', 'good');
+      if (state.ready) startGame();
+      state.save();
+    });
+    channel.on('broadcast', { event: 'move' },    ({ payload }) => { if (state.gameStarted) handleMove(payload.x, payload.y); });
+    channel.on('broadcast', { event: 'result' },  ({ payload }) => { if (state.gameStarted) handleResult(payload); });
+    channel.on('broadcast', { event: 'rematch' }, ({ payload }) => {
+      state.opponentRematchReady = true;
+      setStatus('Opponent wants a rematch!', 'good');
+      if (state.rematchReady) resetGame();
+    });
+    channel.on('broadcast', { event: 'chat' }, ({ payload }) => appendChat('Opponent', payload.msg));
+
+    channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await channel.track({ joinedAt: new Date().toISOString() });
+        const peers = Object.keys(channel.presenceState()).filter(k => k !== myId);
+        if (peers.length === 0) { setStatus('Status: Room joined — waiting for opponent…', 'waiting'); toggleConnectUI(true); }
+        if (loaded) selectNextShip(state, statusEl);
+      } else if (status === 'CHANNEL_ERROR') {
+        setStatus('Status: Connection error — check your Supabase config.', 'error'); toggleConnectUI(true);
+      } else if (status === 'TIMED_OUT') {
+        setStatus('Status: Connection timed out — try reconnecting.', 'error'); toggleConnectUI(true);
+      }
+    });
+  };
+
+  const handlePeerArrived = (peerId) => {
+    state.opponentId = peerId;
+    state.opponentConnected = true;
+    toggleConnectUI(false);
+    if (state.gameStarted) {
+      setStatus(state.myTurn ? 'Status: Your turn! 🎯' : "Status: Opponent's turn…", state.myTurn ? 'myturn' : 'theirturn');
+    } else {
+      setStatus('Status: Connected! Place your ships.', 'good');
+      if (state.ready) state.sendReady({ type: 'ready' });
+    }
+    state.save();
+  };
+
+  generateBtn.addEventListener('click', () => {
     if (state.room || state.opponentConnected || state.gameStarted) {
-      if (!confirm("This will end the current game and start a new one. Continue?")) {
-        return;
-      }
-      if (state.room) {
-        state.room.leave();
-        state.room = null;
-      }
-      resetGame();
+      if (!confirm('This will end the current game and start a new one. Continue?')) return;
+      leaveChannel(); resetGame();
     }
     const roomId = crypto.randomUUID();
-    // Update the URL with the room ID without reloading
     window.history.pushState({}, '', `${window.location.pathname}?room=${roomId}`);
     opponentInput.value = roomId;
-    connectBtn.click(); // Auto-join the generated room
+    connectBtn.click();
   });
-  connectBtn.addEventListener("click", () => {
+
+  connectBtn.addEventListener('click', () => {
     const roomId = opponentInput.value.trim();
-    if (!roomId) {
-      statusEl.textContent = "Status: Enter or generate a Room ID first.";
-      return;
-    }
-    // If the button is in "Reconnect" mode, reload the page instead of attempting to rejoin
-    if (connectBtn.textContent === 'Reconnect') {
-      location.reload();
-      return;
-    }
-    // Remove existing share button if any
-    const existingShareBtn = document.getElementById('share-game-btn');
-    if (existingShareBtn) {
-      existingShareBtn.remove();
-    }
-    // Create styled share button
+    if (!roomId) { setStatus('Status: Enter or generate a Room ID first.', 'error'); return; }
+    document.getElementById('share-game-btn')?.remove();
     const shareBtn = document.createElement('button');
     shareBtn.id = 'share-game-btn';
-    shareBtn.textContent = 'Share Game Link';
+    shareBtn.textContent = '🔗 Share Link';
     shareBtn.classList.add('share-btn');
     const link = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
     shareBtn.addEventListener('click', async () => {
       if (navigator.share) {
-        try {
-          await navigator.share({ title: 'Join my Battleship Game!', text: 'Click to join the game:', url: link });
-        } catch (err) {
-          console.error('Share failed:', err);
-        }
+        try { await navigator.share({ title: 'Join my Battleship game!', url: link }); } catch (e) {}
       } else {
         try {
           await navigator.clipboard.writeText(link);
-          shareBtn.textContent = 'Copied!';
-          shareBtn.classList.add('copied');
-          setTimeout(() => {
-            shareBtn.textContent = 'Share Game Link';
-            shareBtn.classList.remove('copied');
-          }, 2000);
-        } catch (err) {
-          console.error('Copy failed:', err);
-        }
+          shareBtn.textContent = '✓ Copied!'; shareBtn.classList.add('copied');
+          setTimeout(() => { shareBtn.textContent = '🔗 Share Link'; shareBtn.classList.remove('copied'); }, 2000);
+        } catch (e) {}
       }
     });
     controlsDiv.appendChild(shareBtn);
-    if (roomId === state.roomId && state.room) {
-      // Already in this room, just refresh peers and status
-      const peers = Object.keys(state.room.getPeers());
-      const peersLength = peers.length;
-      if (state.gameStarted) {
-        if (peersLength === 1) {
-          state.opponentConnected = true;
-          state.opponentId = peers[0];
-          statusEl.textContent = state.myTurn ? "Status: Your turn!" : "Status: Opponent's turn...";
-        } else {
-          statusEl.textContent = "Status: Waiting for opponent to reconnect...";
-        }
-      } else {
-        if (peersLength === 1) {
-          state.opponentConnected = true;
-          state.opponentId = peers[0];
-          statusEl.textContent = "Status: Connected. Place ships...";
-        } else {
-          statusEl.textContent = "Status: Room joined. Waiting for opponent...";
-        }
-      }
-      toggleConnectUI(false);
-      return;
-    }
-    state.roomId = roomId;
-    const loaded = state.loadAndApply(roomId);
-    statusEl.textContent = "Status: Joining room...";
-    console.log('Joining room:', roomId);
-    if (state.room) {
-      state.room.leave();
-    }
-    state.room = joinRoom(config, roomId);
-    // Setup actions for data exchange
-    [state.sendReady, state.getReady] = state.room.makeAction('ready');
-    [state.sendMove, state.getMove] = state.room.makeAction('move');
-    [state.sendResult, state.getResult] = state.room.makeAction('result');
-    [state.sendRematch, state.getRematch] = state.room.makeAction('rematch');
-    [state.sendChat, state.getChat] = state.room.makeAction('chat');
-    // Listen for opponent joining (for status update)
-    state.room.onPeerJoin(peerId => {
-      console.log('Opponent joined:', peerId);
-      const peers = Object.keys(state.room.getPeers());
-      if (peers.length > 1) {
-        statusEl.textContent = "Error: Too many players in room.";
-        return;
-      }
-      state.opponentId = peerId;
-      state.opponentConnected = true;
-      if (state.gameStarted) {
-        statusEl.textContent = state.myTurn ? "Status: Your turn!" : "Status: Opponent's turn...";
-      } else {
-        statusEl.textContent = "Status: Connected. Place ships...";
-        if (state.ready) {
-          state.sendReady({ type: "ready" });
-        }
-      }
-      toggleConnectUI(false);
-      state.save();
-    });
-    // Handle incoming data
-    state.getReady((data, peerId) => {
-      console.log('Received ready from:', peerId);
-      state.opponentReady = true;
-      statusEl.textContent = "Status: Opponent is ready!";
-      if (state.ready) startGame();
-      state.save();
-    });
-    state.getMove((data, peerId) => {
-      console.log('Received move:', data);
-      if (!state.gameStarted) return;
-      handleMove(data.x, data.y);
-    });
-    state.getResult((data, peerId) => {
-      console.log('Received result:', data);
-      if (!state.gameStarted) return;
-      handleResult(data);
-    });
-    state.getRematch((data, peerId) => {
-      console.log('Received rematch request from:', peerId);
-      state.opponentRematchReady = true;
-      statusEl.textContent = "Opponent wants a rematch!";
-      if (state.rematchReady) resetGame();
-    });
-    state.getChat((msg, peerId) => {
-      console.log('Received chat:', msg);
-      const chatLog = document.getElementById('chat-log');
-      const p = document.createElement('p');
-      p.textContent = `Opponent: ${msg}`;
-      chatLog.appendChild(p);
-      chatLog.scrollTop = chatLog.scrollHeight;
-    });
-    // Handle disconnects
-    state.room.onPeerLeave(peerId => {
-      state.opponentConnected = false;
-      statusEl.textContent = "Status: Opponent disconnected. Waiting for reconnect...";
-      console.log('Opponent left:', peerId);
-      // Do not set gameStarted = false
-      toggleConnectUI(true);
-    });
-    // Set my ID (Trystero's selfId)
-    myIdEl.textContent = selfId;
-    // Setup chat send
-    const chatInput = document.getElementById('chat-input');
-    const sendChatBtn = document.getElementById('send-chat');
-    sendChatBtn.addEventListener('click', () => {
-      if (!state.opponentConnected) return;
-      const msg = chatInput.value.trim();
-      if (msg && state.room) {
-        state.sendChat(msg);
-        const chatLog = document.getElementById('chat-log');
-        const p = document.createElement('p');
-        p.textContent = `You: ${msg}`;
-        chatLog.appendChild(p);
-        chatLog.scrollTop = chatLog.scrollHeight;
-        chatInput.value = '';
-      }
-    });
-    chatInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        sendChatBtn.click();
-      }
-    });
-    // Update status after joining
-    const peers = Object.keys(state.room.getPeers());
-    const peersLength = peers.length;
-    if (state.gameStarted) {
-      if (peersLength === 1) {
-        state.opponentConnected = true;
-        state.opponentId = peers[0];
-        statusEl.textContent = state.myTurn ? "Status: Your turn!" : "Status: Opponent's turn...";
-        toggleConnectUI(false);
-      } else {
-        statusEl.textContent = "Status: Waiting for opponent to reconnect...";
-        toggleConnectUI(true);
-      }
-    } else {
-      if (peersLength === 1) {
-        state.opponentConnected = true;
-        state.opponentId = peers[0];
-        statusEl.textContent = "Status: Connected. Place ships...";
-        toggleConnectUI(false);
-      } else {
-        statusEl.textContent = "Status: Room joined. Waiting for opponent...";
-        toggleConnectUI(true);
-      }
-      if (loaded) {
-        selectNextShip(state, statusEl);
-      }
-    }
+    joinRoom(roomId);
   });
-  readyBtn.addEventListener("click", () => {
+
+  readyBtn.addEventListener('click', () => {
     if (!allShipsPlaced(state)) return;
-    state.ready = true;
-    readyBtn.disabled = true;
-    if (state.room) {
-      console.log('Sending ready');
-      state.sendReady({ type: "ready" });
-      statusEl.textContent = "Status: You are ready! Waiting for opponent...";
-      state.save();
-    } else {
-      statusEl.textContent = "Status: Join a room first.";
-      state.ready = false;
-      readyBtn.disabled = false;
-      return;
-    }
+    if (!state.room) { setStatus('Status: Join a room first.', 'error'); return; }
+    state.ready = true; readyBtn.disabled = true;
+    state.sendReady({ type: 'ready' });
+    setStatus('Status: Ready! Waiting for opponent…', 'waiting');
+    state.save();
     if (state.opponentReady) startGame();
   });
-  rematchBtn.addEventListener("click", () => {
-    state.rematchReady = true;
-    rematchBtn.disabled = true;
-    if (state.room) {
-      console.log('Sending rematch');
-      state.sendRematch({ type: "rematch" });
-      statusEl.textContent = "Waiting for opponent to accept rematch...";
-    } else {
-      statusEl.textContent = "Status: Join a room first.";
-      state.rematchReady = false;
-      rematchBtn.disabled = false;
-      return;
-    }
+
+  rematchBtn.addEventListener('click', () => {
+    if (!state.room) { setStatus('Status: Join a room first.', 'error'); return; }
+    state.rematchReady = true; rematchBtn.disabled = true;
+    state.sendRematch({ type: 'rematch' });
+    setStatus('Waiting for opponent to accept rematch…', 'waiting');
     if (state.opponentRematchReady) resetGame();
   });
-  // Auto-fill and join if ?room=xxx in URL
-  const urlParams = new URLSearchParams(window.location.search);
-  const roomParam = urlParams.get('room');
-  if (roomParam) {
-    opponentInput.value = roomParam;
-    connectBtn.click(); // Auto-join
-  }
-  // Function to toggle connect UI
-  const toggleConnectUI = (isDisconnected) => {
-    if (isDisconnected) {
-      connectBtn.textContent = 'Reconnect';
-      connectBtn.style.display = 'inline-block';
-      opponentInput.style.display = 'inline-block';
-    } else {
-      connectBtn.style.display = 'none';
-      opponentInput.style.display = 'none';
-    }
+
+  const chatInput   = document.getElementById('chat-input');
+  const sendChatBtn = document.getElementById('send-chat');
+  const sendMsg = () => {
+    if (!state.opponentConnected || !state.room) return;
+    const msg = chatInput.value.trim(); if (!msg) return;
+    state.sendChat(msg); appendChat('You', msg); chatInput.value = '';
   };
-  // Initial state: show as disconnected
+  sendChatBtn.addEventListener('click', sendMsg);
+  chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMsg(); });
+
+  const roomParam = new URLSearchParams(window.location.search).get('room');
+  if (roomParam) { opponentInput.value = roomParam; connectBtn.click(); }
+
   toggleConnectUI(true);
+}
+
+function appendChat(sender, msg) {
+  const chatLog = document.getElementById('chat-log');
+  if (!chatLog) return;
+  const p = document.createElement('p');
+  p.innerHTML = `<span class="chat-sender">${sender}:</span> ${msg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}`;
+  chatLog.appendChild(p);
+  chatLog.scrollTop = chatLog.scrollHeight;
 }
