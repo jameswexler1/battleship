@@ -183,33 +183,59 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 #chat-input { flex:1; border-radius:0 0 0 var(--radius); margin:0; }
 #send-chat  { border-radius:0 0 var(--radius) 0; margin:0; background:var(--navy-500); padding:0.45rem 0.75rem; font-size:0.85rem; }
 
-#wordle-app { font-family:'Oxanium','Helvetica Neue',Arial,sans-serif; text-align:center; max-width:100vw; margin:0 auto; padding:10px 0; color:var(--text); display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:calc(100vh - 100px); }
-#wordle-app h3 { font-size:1.4rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--amber); margin-bottom:0.5rem; text-shadow:0 0 16px rgba(245,158,11,0.3); }
-#language-select { margin-bottom:12px; padding:6px 10px; font-size:0.85rem; background:var(--navy-700); color:var(--text); border:1px solid var(--steel); border-radius:var(--radius); font-family:'Oxanium',sans-serif; }
+#wordle-app {
+  font-family: 'Oxanium', 'Helvetica Neue', Arial, sans-serif;
+  text-align: center;
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 10px 0 20px;
+  box-sizing: border-box;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+#wordle-app h3 {
+  font-size: 1.4rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 0.5rem;
+  text-shadow: 0 0 16px rgba(245,158,11,0.3);
+}
+#language-select {
+  margin-bottom: 12px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  background: var(--navy-700);
+  color: var(--text);
+  border: 1px solid var(--steel);
+  border-radius: var(--radius);
+  font-family: 'Oxanium', sans-serif;
+}
 #game-board {
   display: flex;
   flex-direction: column;
   gap: 5px;
+  margin-bottom: 20px;
   width: 100%;
   padding: 0 8px;
   box-sizing: border-box;
-  margin-bottom: 12px;
 }
 .row {
   display: flex;
   gap: 5px;
-  justify-content: center;
 }
 .tile {
-  flex: 1;
-  max-width: 62px;
+  width: calc((100% - 20px) / 5);
   aspect-ratio: 1 / 1;
   border: 2px solid var(--steel);
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: clamp(20px, 5vw, 30px);
+  font-size: clamp(16px, 5vw, 30px);
   font-weight: 700;
   text-transform: uppercase;
   background: var(--navy-800);
@@ -217,45 +243,39 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
   font-family: 'Oxanium', sans-serif;
   box-sizing: border-box;
 }
-.tile.filled { animation:pop 0.1s ease-in-out; border-color:var(--steel-lt); }
-.tile.flip   { animation:flip 0.5s ease forwards; }
-.correct { background:#166534 !important; border-color:#22c55e !important; color:#dcfce7; }
-.present { background:#854d0e !important; border-color:#f59e0b !important; color:#fef3c7; }
-.absent  { background:#374151 !important; border-color:#4b5563 !important; }
-/* Keyboard — NYT proportional flex layout */
+.tile.filled { animation: pop 0.1s ease-in-out; border-color: var(--steel-lt); }
+.tile.flip   { animation: flip 0.5s ease forwards; }
+.correct { background: #166534 !important; border-color: #22c55e !important; color: #dcfce7; }
+.present { background: #854d0e !important; border-color: #f59e0b !important; color: #fef3c7; }
+.absent  { background: #374151 !important; border-color: #4b5563 !important; }
 #keyboard {
   width: 100%;
   padding: 0 8px;
   box-sizing: border-box;
   margin-bottom: 8px;
 }
-
 .keyboard-row {
   display: flex;
-  justify-content: center;
   margin-bottom: 8px;
   touch-action: manipulation;
 }
-
-/* Half-flex spacers flank the 9-key middle row → all rows = 10 flex units
-   → every normal key is the same width on every row, at any screen size. */
 .keyboard-row.second-row::before,
 .keyboard-row.second-row::after {
   content: '';
   flex: 0.5;
 }
-
 .key {
   font-family: 'Oxanium', sans-serif;
   flex: 1;
-  height: 58px;
+  height: calc((100vw - 32px) / 10 * 1.4);
+  max-height: 58px;
   padding: 0;
-  margin: 0 6px 0 0;
+  margin: 0 4px 0 0;
   border: 0;
   border-radius: 4px;
   background: var(--steel);
   color: var(--text);
-  font-size: clamp(11px, 2.5vw, 13px);
+  font-size: clamp(11px, 3vw, 14px);
   font-weight: 700;
   cursor: pointer;
   display: flex;
@@ -267,19 +287,36 @@ button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
-
 .key:last-child { margin-right: 0; }
 .key:hover      { background: var(--navy-500); }
-.key.wide       { flex: 1.5; font-size: clamp(10px, 2.2vw, 12px); }
-.key.correct    { background: #166534; border-color: #22c55e; }
-.key.present    { background: #92400e; border-color: #f59e0b; }
-.key.absent     { background: #1f2937; border-color: #374151; color: var(--text-dim); }
-#message { margin:10px 0; font-size:1.2rem; font-weight:700; letter-spacing:0.1em; min-height:1.8rem; color:var(--text); }
-#message.win  { color:var(--green); text-shadow:0 0 16px rgba(34,197,94,0.5); }
-#message.lose { color:var(--hit-glow); }
-#reset-btn { margin-top:10px; padding:10px 28px; font-size:0.95rem; background:var(--amber); color:var(--navy-900); border:none; border-radius:var(--radius); cursor:pointer; font-weight:700; letter-spacing:0.08em; transition:background 0.2s,transform 0.1s; }
-#reset-btn:hover { background:var(--amber-lt); transform:translateY(-1px); }
-
+.key.wide       { flex: 1.5; font-size: clamp(9px, 2.5vw, 12px); }
+.key.correct    { background: #166534; }
+.key.present    { background: #92400e; }
+.key.absent     { background: #1f2937; color: var(--text-dim); }
+#message {
+  margin: 10px 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  min-height: 1.6rem;
+  color: var(--text);
+}
+#message.win  { color: var(--green); text-shadow: 0 0 16px rgba(34,197,94,0.5); }
+#message.lose { color: var(--hit-glow); }
+#reset-btn {
+  margin-top: 10px;
+  padding: 10px 28px;
+  font-size: 0.95rem;
+  background: var(--amber);
+  color: var(--navy-900);
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  transition: background 0.2s, transform 0.1s;
+}
+#reset-btn:hover { background: var(--amber-lt); transform: translateY(-1px); }
 @keyframes pop  { 0%{transform:scale(1)} 50%{transform:scale(1.08)} 100%{transform:scale(1)} }
 @keyframes flip { 0%{transform:rotateX(0deg)} 49.99%{transform:rotateX(90deg)} 50%{transform:rotateX(270deg)} 100%{transform:rotateX(360deg)} }
 @keyframes shake { 0%{transform:translateX(0)} 20%{transform:translateX(-5px)} 40%{transform:translateX(5px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(5px)} 100%{transform:translateX(0)} }
